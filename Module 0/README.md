@@ -312,3 +312,187 @@ Intel GPU
   ↓
 Local response
 ```
+
+## Bonus: Serve the model with `llama-server`
+
+So far you have run the model directly with `llama-cli`.
+
+The same `llama.cpp` package also includes `llama-server`, which can expose the model through an HTTP API, including OpenAI-compatible chat-completion endpoints. llama.cpp HTTP Server 【1-a74394】
+
+The software path remains:
+
+```text
+Application
+     ↓
+OpenAI-compatible API
+     ↓
+llama-server
+     ↓
+SYCL / DPC++
+     ↓
+Level Zero
+     ↓
+Intel GPU
+```
+
+### 1. Start the server
+
+If you opened a new PowerShell window, return to the module directory and set the model path again:
+
+```powershell
+cd "$HOME\Desktop\module-0-sycl-local-inference"
+
+$Model = ".\models\Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
+```
+
+Start `llama-server`:
+
+```powershell
+.\llama-sycl\llama-server.exe `
+    -m $Model `
+    -ngl 99 `
+    --port 8080
+```
+
+Keep this PowerShell window open.
+
+Wait for:
+
+```text
+llama_server: model loaded
+llama_server: listening on http://127.0.0.1:8080
+```
+
+You may also see something similar to:
+
+```text
+n_slots = 4
+n_ctx_slot = 32768
+kv_unified = 'true'
+```
+
+### What do these mean?
+
+**`n_slots = 4`**
+
+`llama-server` has initialized multiple processing slots. Slots allow the server to manage multiple request sequences rather than behaving like a single interactive `llama-cli` session. `llama-server` supports parallel decoding and continuous batching for multi-request serving. llama.cpp HTTP Server 【1-a74394】
+
+**`n_ctx_slot = 32768`**
+
+This is the context capacity reported for each initialized server slot in this configuration.
+
+The exact value may differ depending on the model and server configuration.
+
+**`kv_unified = 'true'`**
+
+During generation, the model maintains a **KV cache** containing attention state for tokens that have already been processed.
+
+This avoids recomputing the entire preceding sequence for every newly generated token.
+
+With unified KV enabled, `llama-server` uses a shared KV buffer across sequences rather than treating every slot as a completely separate KV allocation. The llama.cpp slot documentation also describes slots as the mechanism used to process requests and reuse cached prompt state. Tutorial: KV cache reuse with llama-server 【2-2deb61】
+
+Conceptually:
+
+```text
+Incoming requests
+      ↓
+ ┌────┼────┐
+ ↓    ↓    ↓
+Slot Slot Slot ...
+  \    |    /
+   \   |   /
+   Shared KV
+     cache
+```
+
+For now, the important takeaway is simply:
+
+```text
+llama-cli
+= interactive local inference
+
+llama-server
+= persistent model serving
+  with multiple request slots
+  and reusable model context
+```
+
+---
+
+### 2. Check server health
+
+Open a **second PowerShell window**.
+
+Run:
+
+```powershell
+Invoke-RestMethod `
+    -Uri "http://127.0.0.1:8080/health" `
+    -Method Get
+```
+
+Expected:
+
+```text
+status
+------
+ok
+```
+
+---
+
+### 3. Inspect the served model
+
+Run:
+
+```powershell
+$Models = Invoke-RestMethod `
+    -Uri "http://127.0.0.1:8080/v1/models" `
+    -Method Get
+
+$Models.data |
+    Select-Object id, object
+```
+
+The returned model ID may be the local path to the GGUF file.
+
+Capture the model ID:
+
+```powershell
+$ModelId = $Models.data[0].id
+```
+
+---
+
+### 4. Send `Hello` through the API
+
+Paste the following as one PowerShell block:
+
+```powershell
+$Body = @{
+    model = $ModelId
+    messages = @(
+        @{
+            role    = "user"
+            content = "Hello"
+        }
+    )
+    max_tokens = 32
+} | ConvertTo-Json -Depth 5
+
+$Response = Invoke-RestMethod `
+    -Uri "http://127.0.0.1:8080/v1/chat/completions" `
+    -Method Post `
+    -ContentType "application/json" `
+    -Body $Body
+
+$Response.choices[0].message.content
+```
+
+You should receive a model-generated response to:
+
+```text
+Hello
+```
+
+`llama-server` provides OpenAI-compatible chat-completion APIs, so applications can interact with the locally served model through a standard API instead of launching inference directly from the CLI.
