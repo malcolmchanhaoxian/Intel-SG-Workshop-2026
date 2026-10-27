@@ -78,12 +78,6 @@ module-0-sycl-local-inference\llama-sycl
 
 Keep the supplied DLL files together with the executables.
 
-Return to the module directory:
-
-```powershell
-cd "$HOME\Desktop\module-0-sycl-local-inference"
-```
-
 Check the installed build:
 
 ```powershell
@@ -142,47 +136,9 @@ Intel GPU
 
 ---
 
-## 4. Install the Hugging Face CLI
+## 4. Download the model
 
-Install the Hugging Face CLI:
-
-```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
-```
-
-If `hf` is not immediately recognized, close PowerShell and open a new PowerShell window.
-
-Return to the module directory:
-
-```powershell
-cd "$HOME\Desktop\module-0-sycl-local-inference"
-```
-
-Verify the installation:
-
-```powershell
-hf --help
-```
-
----
-
-## 5. Download the model
-
-Download the Qwen2.5-0.5B-Instruct Q4_K_M GGUF:
-
-```powershell
-hf download `
-    lmstudio-community/Qwen2.5-0.5B-Instruct-GGUF `
-    Qwen2.5-0.5B-Instruct-Q4_K_M.gguf `
-    --local-dir ".\models"
-```
-
-Verify the file:
-
-```powershell
-Get-Item ".\models\Qwen2.5-0.5B-Instruct-Q4_K_M.gguf" |
-    Select-Object Name, Length, FullName
-```
+Download the Qwen2.5-0.5B-Instruct Q4_K_M GGUF directly from Huggingface:
 
 Set the model path:
 
