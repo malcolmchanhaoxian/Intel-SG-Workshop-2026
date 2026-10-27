@@ -1,90 +1,63 @@
-# Module 0.5 Validation: ZeroClaw Agent on Intel Graphics
+# Module 0.5: Add a Local Agent with ZeroClaw
 
-## Target stack
+This optional module builds on Module 0 by adding an agentic layer to the local Intel AI stack.
 
 ```text
+User objective
+      ↓
 ZeroClaw
-    ↓
-Qwen3.5-4B Q4_K_M
-    ↓
+      ↓
+Local LLM
+      ↓
 llama-server
-    ↓
-llama.cpp SYCL
-    ↓
+      ↓
+SYCL / DPC++
+      ↓
 Level Zero
-    ↓
+      ↓
 Intel Graphics
 ```
 
-## 1. Validate the Intel GPU path
-
-From the llama.cpp Windows SYCL directory:
-
-```powershell
-.\llama-cli.exe --list-devices
-```
-
-Confirm an Intel SYCL device is listed.
-
-Then:
-
-```powershell
-.\llama-bench.exe --list-devices
-```
-
-Look for:
-
-```text
-GGML_SYCL_SUPPORT_LEVEL_ZERO_API: yes
-GGML_SYCL_USE_LEVEL_ZERO_API: 1
-[level_zero:gpu:0]
-```
+Instead of interacting directly with `llama.cpp`, you will give an agent a task and allow the model to decide how to complete it.
 
 ---
 
-## 2. Benchmark Qwen3.5-4B
+## Requirements
 
-Place:
+Complete Module 0 first.
 
-```text
-Qwen3.5-4B-Q4_K_M.gguf
-```
+You should already have:
 
-in the Downloads folder.
+- Windows 11
+- Intel graphics detected by the SYCL backend
+- the Windows x64 SYCL build of `llama.cpp`
+- a suitable GGUF model
+- a working `llama-server`
 
-Set the path:
-
-```powershell
-$Model4B = "$HOME\Downloads\Qwen3.5-4B-Q4_K_M.gguf"
-```
-
-Run:
-
-```powershell
-.\llama-bench.exe `
-    -m $Model4B `
-    -ngl 99
-```
-
-Record:
-
-```text
-pp512: __________ t/s
-tg128: __________ t/s
-```
-
-There is no target score. We want a Panther Lake baseline.
+Performance will vary by Intel GPU, driver, model, quantization, context size and system memory.
 
 ---
 
-## 3. Start the model server
+## 1. Start the local model server
+
+Open PowerShell in the `llama.cpp` SYCL directory.
+
+Set your model path.
+
+Example:
+
+```powershell
+$Model = "$HOME\Downloads\Qwen3.5-4B-Q4_K_M.gguf"
+```
+
+Start the model server:
 
 ```powershell
 .\llama-server.exe `
-    -m $Model4B `
+    -m $Model `
     -ngl 99 `
     -c 32768 `
-    --alias qwen3.5-4b `
+    --alias local-agent `
     --port 8080
 ```
 
@@ -97,11 +70,9 @@ llama_server: listening on http://127.0.0.1:8080
 
 Keep this PowerShell window open.
 
----
+### Check the API
 
-## 4. Check the API
-
-Open a second PowerShell window.
+Open another PowerShell window:
 
 ```powershell
 Invoke-RestMethod `
@@ -117,7 +88,7 @@ status
 ok
 ```
 
-Check the model:
+Check the served model:
 
 ```powershell
 (Invoke-RestMethod `
@@ -125,17 +96,60 @@ Check the model:
     Select-Object id
 ```
 
-Expected model ID:
+Expected:
 
 ```text
-qwen3.5-4b
+local-agent
 ```
 
 ---
 
-## 5. Install ZeroClaw
+## 2. Install ZeroClaw
 
-Install the Windows x64 release of ZeroClaw.
+Run:
+
+```powershell
+$ver = (Invoke-RestMethod "https://api.github.com/repos/zeroclaw-labs/zeroclaw/releases/latest").tag_name.TrimStart("v")
+$dst = "$env:USERPROFILE\.zeroclaw\bin"
+$exe = "$dst\zeroclaw.exe"
+
+$current = if (Test-Path $exe) {
+    ((& $exe --version 2>$null) |
+        Select-String -Pattern '\d+\.\d+\.\d+').Matches.Value
+} else {
+    ""
+}
+
+if ($current -ne $ver) {
+    $url = "https://github.com/zeroclaw-labs/zeroclaw/releases/download/v$ver/zeroclaw-x86_64-pc-windows-msvc.zip"
+
+    New-Item -ItemType Directory -Force -Path $dst | Out-Null
+
+    Invoke-WebRequest `
+        -Uri $url `
+        -OutFile "$env:TEMP\zeroclaw.zip" `
+        -UseBasicParsing
+
+    Expand-Archive `
+        -Force `
+        -Path "$env:TEMP\zeroclaw.zip" `
+        -DestinationPath $dst
+}
+
+$userPath = :GetEnvironmentVariable("Path", "User")
+
+if (($userPath -split ";") -notcontains $dst) {
+    [Environment]::SetEnvironmentVariable(
+        "Path",
+        "$dst;$userPath",
+        "User"
+    )
+}
+
+if (($env:Path -split ";") -notcontains $dst) {
+    $env:Path = "$dst;$env:Path"
+}
+```
 
 Verify:
 
@@ -143,23 +157,23 @@ Verify:
 zeroclaw --version
 ```
 
-Record the installed version:
+ZeroClaw is installed under:
 
 ```text
-ZeroClaw version: __________________
+%USERPROFILE%\.zeroclaw\bin
 ```
 
 ---
 
-## 6. Configure llama.cpp as the model provider
+## 3. Add llama.cpp as a ZeroClaw provider
 
-Create the provider:
+Create a local llama.cpp provider:
 
 ```powershell
 zeroclaw config init providers.models.llamacpp.local
 ```
 
-Set the endpoint:
+Point it to `llama-server`:
 
 ```powershell
 zeroclaw config set `
@@ -167,15 +181,15 @@ zeroclaw config set `
     "http://127.0.0.1:8080"
 ```
 
-Set the model:
+Set the API model name:
 
 ```powershell
 zeroclaw config set `
     providers.models.llamacpp.local.model `
-    "qwen3.5-4b"
+    "local-agent"
 ```
 
-Set the model as text-only:
+For a text-only model:
 
 ```powershell
 zeroclaw config set `
@@ -183,7 +197,7 @@ zeroclaw config set `
     false
 ```
 
-Verify:
+Review the provider:
 
 ```powershell
 zeroclaw config list `
@@ -194,25 +208,27 @@ Confirm:
 
 ```text
 uri    = http://127.0.0.1:8080
-model  = qwen3.5-4b
+model  = local-agent
 vision = false
 ```
 
 ---
 
-## 7. Create the agent
+## 4. Create the agent
+
+Create an agent called `workshop`:
 
 ```powershell
 zeroclaw agents create workshop
 ```
 
-Create its risk profile:
+Initialize its default risk profile:
 
 ```powershell
 zeroclaw config init risk_profiles.workshop
 ```
 
-Connect the agent to llama.cpp:
+Connect the agent to the local llama.cpp provider:
 
 ```powershell
 zeroclaw config set `
@@ -220,7 +236,7 @@ zeroclaw config set `
     "llamacpp.local"
 ```
 
-Assign the risk profile:
+Assign its risk profile:
 
 ```powershell
 zeroclaw config set `
@@ -228,265 +244,170 @@ zeroclaw config set `
     "workshop"
 ```
 
-Disable the precheck for this local validation:
+Review the agent:
 
 ```powershell
-zeroclaw config set `
-    agents.workshop.precheck.enabled `
-    false
+zeroclaw config list `
+    --filter agents.workshop
+```
+
+Look for:
+
+```text
+model_provider = llamacpp.local
+risk_profile   = workshop
 ```
 
 ---
 
-## 8. Expose only the required tools
+## 5. Start ZeroClaw
 
-The agent needs:
+Start an interactive agent session:
+
+```powershell
+zeroclaw agent -a workshop
+```
+
+You are now interacting with:
 
 ```text
-file_read
-glob_search
+ZeroClaw
+    ↓
+llamacpp.local
+    ↓
+llama-server
+    ↓
+Local LLM
+    ↓
+SYCL / DPC++
+    ↓
+Level Zero
+    ↓
+Intel Graphics
 ```
 
-Create the configuration patch:
-
-```powershell
-$Patch = @'
-[
-  {
-    "op": "replace",
-    "path": "/risk_profiles/workshop/allowed_tools",
-    "value": ["file_read", "glob_search"]
-  }
-]
-'@
-```
-
-Save and apply it:
-
-```powershell
-$Patch | Set-Content "$HOME\zeroclaw-tools-patch.json"
-
-zeroclaw config patch `
-    "$HOME\zeroclaw-tools-patch.json"
-```
-
-Verify:
-
-```powershell
-zeroclaw config get `
-    risk_profiles.workshop.allowed_tools
-```
-
-Expected:
+Try a normal request first:
 
 ```text
-["file_read", "glob_search"]
+Explain in one paragraph what SYCL is.
 ```
+
+Then give the agent a task that requires it to use available capabilities rather than simply answer a question.
+
+The exact response and tools selected depend on the model and task.
 
 ---
 
-## 9. Create the workspace
+## 6. Watch the inference stack
 
-```powershell
-New-Item `
-    -ItemType Directory `
-    -Path "$HOME\zeroclaw-workshop" `
-    -Force
-```
+Keep the `llama-server` window visible while interacting with ZeroClaw.
 
-Create two files:
+You should see requests being processed by the same local model server used in Module 0.
 
-```powershell
-"Intel AI-GPU Workshop validation successful." |
-    Set-Content "$HOME\zeroclaw-workshop\validation.txt"
-
-"Module 0 uses llama.cpp with SYCL and Level Zero." |
-    Set-Content "$HOME\zeroclaw-workshop\hardware.txt"
-```
-
-Verify:
-
-```powershell
-Get-ChildItem "$HOME\zeroclaw-workshop"
-```
-
-Expected:
+Typical timing output includes:
 
 ```text
-hardware.txt
-validation.txt
-```
-
-Assign the workspace:
-
-```powershell
-zeroclaw config set `
-    agents.workshop.workspace.path `
-    "$HOME\zeroclaw-workshop"
-```
-
----
-
-## 10. Test tool restraint
-
-```powershell
-zeroclaw agent `
-    -a workshop `
-    -m "What is 2 + 2? Answer directly without using a tool."
-```
-
-Expected:
-
-```text
-4
-```
-
-No tool should be invoked.
-
-**Result:**
-
-```text
-PASS / FAIL
-```
-
----
-
-## 11. Test one tool
-
-```powershell
-zeroclaw agent `
-    -a workshop `
-    -m "Use the file_read tool to read validation.txt. Return only the exact file contents."
-```
-
-Expected:
-
-```text
-Intel AI-GPU Workshop validation successful.
-```
-
-**Result:**
-
-```text
-PASS / FAIL
-```
-
----
-
-## 12. Test a multi-step agent task
-
-```powershell
-zeroclaw agent `
-    -a workshop `
-    -m "Use glob_search to list the .txt files in your workspace. Then use file_read to read validation.txt and return its exact contents."
-```
-
-Expected behavior:
-
-```text
-glob_search
-      ↓
-hardware.txt
-validation.txt
-      ↓
-file_read
-      ↓
-Intel AI-GPU Workshop validation successful.
-```
-
-**Result:**
-
-```text
-PASS / FAIL
-```
-
----
-
-## 13. Record the Panther Lake results
-
-```text
-Platform:
-Panther Lake
-
-Intel GPU:
-________________________________
-
-Intel graphics driver:
-________________________________
-
-llama.cpp build:
-________________________________
-
-ZeroClaw version:
-________________________________
-
-Model:
-Qwen3.5-4B Q4_K_M
-
-Context:
-32768
-
-llama-bench:
-
-pp512: __________ t/s
-tg128: __________ t/s
-
-Agent validation:
-
-Tool restraint:              PASS / FAIL
-file_read:                   PASS / FAIL
-glob_search → file_read:     PASS / FAIL
-```
-
-Also observe the `llama-server` window during each ZeroClaw task.
-
-Useful measurements include:
-
-```text
-prompt eval tokens
-prompt tokens/s
-generation tokens/s
+prompt eval time
+eval time
 total time
 ```
 
----
-
-## Validation target
-
-The Panther Lake configuration is ready for Module 0.5 when:
+The application layer has changed:
 
 ```text
-SYCL device detected             PASS
-Level Zero detected              PASS
-Qwen3.5-4B loads                 PASS
-llama-server starts              PASS
-ZeroClaw connects                PASS
-Tool restraint works             PASS
-file_read works                  PASS
-glob_search → file_read works    PASS
-Interactive latency acceptable   PASS
+Module 0
+
+User
+ ↓
+llama-cli / llama-server
 ```
 
-The resulting architecture is:
+to:
 
 ```text
+Module 0.5
+
 User objective
-      ↓
-ZeroClaw
-      ↓
-Qwen3.5-4B
-      ↓
-Tool decision
-      ↓
-file_read / glob_search
-      ↓
-Model response
-      ↓
+ ↓
+ZeroClaw agent
+ ↓
 llama-server
-      ↓
+```
+
+But the Intel inference path underneath remains:
+
+```text
+llama.cpp
+    ↓
 SYCL / DPC++
-      ↓
+    ↓
 Level Zero
-      ↓
+    ↓
+Intel Graphics
+```
+
+---
+
+## 7. Switching inference infrastructure later
+
+The `workshop` agent references:
+
+```text
+llamacpp.local
+```
+
+rather than owning the inference endpoint itself.
+
+Today:
+
+```text
+workshop
+    ↓
+llamacpp.local
+    ↓
+Intel AI PC
+```
+
+Later modules can introduce a different model provider while keeping the agent concept unchanged:
+
+```text
+workshop
+    ↓
+model provider
+    ↓
+different inference infrastructure
+```
+
+This separation between the agent and model provider will become important when the workshop moves from local inference to larger GPU serving and routing.
+
+---
+
+## Completion check
+
+Module 0.5 is complete when:
+
+- ZeroClaw is installed
+- `llama-server` is running
+- `llamacpp.local` points to the local endpoint
+- the `workshop` agent uses `llamacpp.local`
+- `zeroclaw agent -a workshop` starts successfully
+- the agent can interact with the locally served model
+- activity is visible in the `llama-server` console
+
+You now have:
+
+```text
+Agentic application
+       ↓
+ZeroClaw
+       ↓
+OpenAI-compatible model service
+       ↓
+llama-server
+       ↓
+SYCL / DPC++
+       ↓
+Level Zero
+       ↓
 Intel Graphics
 ```
