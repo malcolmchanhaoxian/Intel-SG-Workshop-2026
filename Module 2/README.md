@@ -134,7 +134,7 @@ docker compose ps
 docker compose logs -f litellm
 ```
 
-<img width="837" height="717" alt="image" src="https://github.com/user-attachments/assets/68bb7b75-f99e-4632-9568-244a07258142" />
+<img width="657" height="516" alt="image" src="https://github.com/user-attachments/assets/3818585e-462e-4361-adee-d06f77640c62" />
 
 
 Press Ctrl+C after LiteLLM is listening. This stops only the log view.
