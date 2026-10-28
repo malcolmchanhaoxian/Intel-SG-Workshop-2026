@@ -33,3 +33,20 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plug
 sudo usermod -aG docker $USER
 newgrp docker
 ```
+
+## Start Docker:
+```
+sudo systemctl start docker
+```
+
+## Check that Docker is running:
+```
+sudo systemctl status docker --no-pager
+```
+
+## If Docker fails with failed to load listeners: no sockets found via socket activation, restart the Docker socket and daemon:
+```
+sudo systemctl reset-failed docker.service docker.socket
+sudo systemctl restart docker.socket
+sudo systemctl start docker
+```
