@@ -138,13 +138,13 @@ Intel GPU
 
 ## 4. Download the model
 
-Download the Qwen2.5-0.5B-Instruct Q4_K_M GGUF directly from Huggingface:
+Since we will be demonstrating Agentic OS on Hermes Agent, we will select a suitable model candidate for the demonstration.
+[Download](https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B-GGUF/resolve/main/Hermes-3-Llama-3.1-8B.Q4_K_M.gguf?download=true) the Hermes-3-Llama-3.1-8B-GGUF (4-bit) directly from Huggingface.
 
-Set the model path:
+Set the model path (Example, we downloaded to the "C:\Users\Intel\Downloads\..." directory:
 
 ```powershell
-$Model = Resolve-Path `
-    ".\models\Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
+$Model = "C:\Users\Intel\Downloads\Hermes-3-Llama-3.1-8B.Q4_K_M.gguf"
 ```
 
 ---
@@ -208,31 +208,6 @@ Find these two tests in the results:
 ```text
 pp512
 tg128
-```
-
-Record your results:
-
-```text
-Intel GPU:
-________________________________________
-
-Driver:
-________________________________________
-
-llama.cpp build:
-________________________________________
-
-Model:
-Qwen2.5-0.5B-Instruct-Q4_K_M
-
-Backend:
-SYCL
-
-pp512:
-________________ t/s
-
-tg128:
-________________ t/s
 ```
 
 - `pp512` measures the benchmark's prompt-processing workload.
