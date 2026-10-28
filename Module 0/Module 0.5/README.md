@@ -1,11 +1,13 @@
-# Module 0.5: Add a Local Agent with ZeroClaw
+# Module 0.5: Add a Local Agent with Hermes 
+
+<img width="1200" height="630" alt="image" src="https://github.com/user-attachments/assets/30169d38-eb2d-44ff-81d8-5dd7709d83ac" />
 
 This optional module builds on Module 0 by adding an agentic layer to the local Intel AI stack.
 
 ```text
 User objective
       ↓
-ZeroClaw
+Hermes Agent
       ↓
 Local LLM
       ↓
@@ -38,55 +40,11 @@ Performance will vary by Intel GPU, driver, model, quantization, context size an
 
 ---
 
-## 1. Start the local model server
-
-Open PowerShell in the `llama.cpp` SYCL directory.
-
-Set your model path.
-
-Example:
-
-```powershell
-$Model = "$HOME\Downloads\Qwen3.5-4B-Q4_K_M.gguf"
-```
-
-Start the model server:
-
-```powershell
-.\llama-server.exe `
-    -m $Model `
-    -ngl 99 `
-    -c 32768 `
-    --alias local-agent `
-    --port 8080
-```
-
-Wait for:
-
-```text
-llama_server: model loaded
-llama_server: listening on http://127.0.0.1:8080
-```
-
-Keep this PowerShell window open.
+## 1. Get the local model server details
 
 ### Check the API
 
 Open another PowerShell window:
-
-```powershell
-Invoke-RestMethod `
-    -Uri "http://127.0.0.1:8080/health" `
-    -Method Get
-```
-
-Expected:
-
-```text
-status
-------
-ok
-```
 
 Check the served model:
 
@@ -96,15 +54,15 @@ Check the served model:
     Select-Object id
 ```
 
-Expected:
+Expected (Eg):
 
 ```text
-local-agent
+Hermes-3-Llama-3.1-8B-4bit
 ```
 
 ---
 
-## 2. Install ZeroClaw
+## 2. Install Hermes
 
 Run:
 
