@@ -1,0 +1,15 @@
+SIMPLE|hello, how are you
+SIMPLE|what is the capital of Malaysia
+SIMPLE|define virtualization
+SIMPLE|summarize this paragraph in one sentence
+SIMPLE|rewrite this sentence to sound more professional
+COMPLEX|write a Python function that reads a CSV file
+COMPLEX|my Bash script fails with an unexpected token, fix it
+COMPLEX|convert this SQL query into pandas
+COMPLEX|write a Dockerfile for a FastAPI application
+COMPLEX|refactor this Python class to use dependency injection
+REASONING|compare Kafka and RabbitMQ for an event-driven platform and recommend one
+REASONING|plan a phased VMware to cloud migration with risks and mitigations
+REASONING|design a multi-region failover architecture for a payment system
+REASONING|analyze three database architectures and recommend the best one
+REASONING|create a capacity planning framework for an AI inference platform
