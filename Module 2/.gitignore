@@ -1,0 +1,5 @@
+.env
+pgdata/
+tei-data/
+free-models-*.tsv
+*.bak

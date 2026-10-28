@@ -1,0 +1,77 @@
+model_list:
+  # BGE embedding model served locally by TEI on Xeon.
+  - model_name: bge-embed
+    litellm_params:
+      model: openai/BAAI/bge-base-en-v1.5
+      api_base: http://tei:80/v1
+      api_key: none
+
+  # SIMPLE / MEDIUM
+  - model_name: default-llm
+    litellm_params:
+      model: openrouter/nvidia/nemotron-3.5-lightning:free
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # COMPLEX / coding
+  - model_name: coder-llm
+    litellm_params:
+      model: openrouter/cohere/north-mini-code:free
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # REASONING
+  - model_name: reasoning-llm
+    litellm_params:
+      model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # Single client-facing model name.
+  - model_name: smart_router
+    litellm_params:
+      model: auto_router/complexity_router
+      drop_params: true
+      complexity_router_config:
+        tiers:
+          SIMPLE: default-llm
+          MEDIUM: default-llm
+          COMPLEX: coder-llm
+          REASONING: reasoning-llm
+
+        # Hybrid routing: semantic matching using BGE + LiteLLM heuristic fallback.
+        semantic_keyword_matching: true
+        embedding_model: bge-embed
+        match_threshold: 0.7
+        keyword_tier_rules:
+          - tier: SIMPLE
+            keywords:
+              - "hello"
+              - "what is the capital of France"
+              - "summarize this paragraph in one line"
+              - "translate this sentence into Malay"
+              - "rewrite this email to sound more polite"
+
+          - tier: COMPLEX
+            keywords:
+              - "write a python function that parses a CSV file"
+              - "fix this bug in my javascript code"
+              - "why does my bash script throw a syntax error"
+              - "convert this SQL query to pandas"
+              - "write a dockerfile for a fastapi app"
+
+          - tier: REASONING
+            keywords:
+              - "compare the trade-offs of three architectures and recommend one"
+              - "plan a migration strategy with risks and mitigations"
+              - "design a distributed system for a million requests per second"
+              - "analyze this business case and build a decision framework"
+
+      complexity_router_default_model: default-llm
+
+router_settings:
+  num_retries: 2
+  fallbacks:
+    - coder-llm: [reasoning-llm]
+    - reasoning-llm: [coder-llm]
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
