@@ -1,52 +1,40 @@
-# Windows llama.cpp Backend for LiteLLM Semantic Routing
+# Configuring LiteLLM Semantic Routing and Connecting to Agent Harness
 
 This README documents how to configure LiteLLM running in Docker (Linux) to route SIMPLE and MEDIUM requests to a local llama.cpp server running on a Windows laptop. The connection uses an SSH reverse tunnel so the llama.cpp server does not need to listen directly on the LAN.
 
 ## 1. Architecture
 
 ```text
-Hermes Agent (Windows)
-        |
-        | OpenAI-compatible API
-        | http://PROXYHOST:4000/v1
-        v
-LiteLLM Proxy (Docker on Linux)
-        |
-        | http://DOCKERGATEWAY:18080/v1
-        v
-Apollo Docker bridge gateway
-        | DOCKERGATEWAY:18080
-        |
-        | SSH reverse tunnel
-        v
-Windows llama.cpp server
-        | LOCALHOST:8080
-        v
-Hermes-3-Llama-3.1-8B-4bit
+                 Hermes Agent (Windows)
+                           |
+                           | OpenAI-compatible API
+                           v
+                     LiteLLM Proxy
+                           |
+              ┌────────────┼────────────┐
+              |            |            |
+              v            v            v
+      1. Local LLM    2. GPU LLM    3. Cloud LLM
+         Inference       Inference      Inference
+              |            |            |
+              v            v            v
+        llama.cpp       vLLM on       OpenRouter
+        Windows         Intel Arc     Free Models
+    Hermes-3-Llama-     Pro B70
+      3.1-8B-4bit
+
 ```
 
 ### 1.1 Configuration Reference
 
-| Component | Configuration |
-|---|---|
-| Apollo LAN address 
-| LiteLLM container | `module2-litellm-1` |
-| Docker network | `module2_default` |
-| Docker bridge gateway 
-| LiteLLM port | `4000` |
-| SSH tunnel port on Apollo | `18080` |
-| llama.cpp port on Windows | `8080` |
-| Local model alias | `Hermes-3-Llama-3.1-8B-4bit` |
-| Example GGUF file | `Hermes-3-Llama-3.1-8B.Q4_K_M.gguf` |
+Depending on how user is accessing the LiteLLM proxy, local llama.cpp server (via SYCL0) and B70 GPU vLLM endpoint, network configuration will differ. Some of the steps below are relevant to the moderator's configuration of a reverse tunnel (since llama.cpp server and hermes agent OS is residing in local PC and LiteLLM router and B70 endpoint is residing in remote server) 
 
-**Important:** The Docker gateway address may change if the Docker network is recreated. Verify it before using these values on another installation.
+Step 3 - 5 is not relevant to the fundamental concept of semantic LLM routing for agentic harness. You may skip it if you are only listening to the moderator's demonstration. 
 
 ## 2. Start llama.cpp on Windows Powershell
 You should have your existing llama.cpp server open based on [Module 0](https://github.com/malcolmchanhaoxian/Intel-SG-Workshop-2026/tree/main/Module%200)
 
 Keep this PowerShell window open while using the local model.
-
-The `--host 127.0.0.1` option keeps llama.cpp bound to the Windows loopback interface. Do not change it to `0.0.0.0` just to make it reachable from Docker. The SSH tunnel provides the connection.
 
 ### 2.2 Verify the Local Model Endpoint
 
@@ -68,7 +56,7 @@ If this request fails, resolve the llama.cpp startup issue before proceeding.
 
 The LiteLLM container must connect to the Docker bridge gateway, not to its own loopback address.
 
-Run this command on Apollo. ```module2-litellm-1``` is the name of the docker we started in [Module 2](https://github.com/malcolmchanhaoxian/Intel-SG-Workshop-2026/tree/main/Module%202):
+Run this command on server terminal. ```module2-litellm-1``` is the name of the docker we started in [Module 2](https://github.com/malcolmchanhaoxian/Intel-SG-Workshop-2026/tree/main/Module%202):
 
 ```bash
 docker inspect module2-litellm-1 \
@@ -81,13 +69,11 @@ Example output:
 network=module2_default container_ip=<IPADDRESS> gateway=<IPADDRESS>
 ```
 
-Record the gateway address. This examples use `172.18.0.1`.
+Record the gateway address. This example uses `172.18.0.1`.
 
 ## 4. Configure SSH Reverse Tunnelling
 
-The SSH reverse tunnel is initiated from Local Windows PC to your LiteLLM/B70 Server.
-
-It forwards connections received on the server's Docker bridge gateway port `18080` to the llama.cpp server on Windows at local host port `8080`.
+We will initiate a SSH reverse tunnel from our Local Windows PC to the LiteLLM/B70 Server so our LiteLLM router can access the local iGPU model serving.
 
 ### 4.1 Back Up the SSH Configuration
 
@@ -98,9 +84,7 @@ sudo cp -a /etc/ssh/sshd_config \
   /etc/ssh/sshd_config.backup-before-gatewayports
 ```
 
-Keep an existing administrative SSH session open while changing SSH daemon settings.
-
-### 4.2 Configure GatewayPorts on Apollo
+### 4.2 Configure GatewayPorts on Server
 
 Edit the SSH daemon configuration:
 
@@ -118,7 +102,7 @@ Check for conflicting active `GatewayPorts` directives, including directives lat
 
 The intended setting is `clientspecified`.
 
-**Do not use `GatewayPorts yes` for this configuration.** In the initial setup, that setting caused the reverse tunnel to listen on wildcard addresses, including `0.0.0.0:18080` and `[::]:18080`, exposing the listener on all host interfaces.
+**Do not use `GatewayPorts yes` for this configuration.** It will cause the reverse tunnel to listen on wildcard addresses, including `0.0.0.0:18080` and `[::]:18080`, exposing the listener on all host interfaces.
 
 With `GatewayPorts clientspecified`, the SSH client can request the specific bind address `172.18.0.1`.
 
@@ -152,15 +136,15 @@ gatewayports clientspecified
 
 Do not proceed if the effective setting is different.
 
-### 4.4 Start the Reverse Tunnel from Windows
+### 4.4 Start the Reverse Tunnel from Windows to the B70/LiteLLM server
 
 In PowerShell on Windows, run:
 
 ```powershell
-ssh -N -T -o ExitOnForwardFailure=yes -R 172.18.0.1:18080:127.0.0.1:8080 intel@<SERVERIPADDRESS>
+ssh -N -T -o ExitOnForwardFailure=yes -R 172.18.0.1:18080:127.0.0.1:8080 username@<SERVERIPADDRESS>
 ```
 
-Replace the gateway address, SSH username, or Apollo address if your environment differs.
+Replace the gateway address, SSH username, or Server IP address if your environment differs.
 
 A successful tunnel normally remains running without returning to the PowerShell prompt. This is expected.
 
@@ -230,11 +214,14 @@ Edit the host-side LiteLLM configuration file:
 ~/Intel-SG-Workshop-2026/Module 2/config.yaml
 ```
 
-The `default-llm` entry must use the Docker gateway address.
+The current config routes prompts of different nature to different LLM. We have split the prompt type to the below format as explained previously:
+```
+# SIMPLE / MEDIUM (model_name: default-llm)
+# COMPLEX / coding (model_name: coder-llm)
+# REASONING (model_name: reasoning-llm)
+```
 
-**Do not use `127.0.0.1:18080` as the LiteLLM `api_base`.** Inside the container, `127.0.0.1` refers to the container itself, not Apollo's host gateway.
-
-### 6.1 Local llama.cpp Backend
+### 6.1 SIMPLE/MEDIUM - Local llama.cpp Backend
 
 Configure `default-llm` as follows:
 
@@ -368,12 +355,12 @@ The following must be running for local inference to work:
 
 1. The Windows `llama-server.exe` process.
 2. The Windows SSH reverse-tunnel process.
-3. The LiteLLM Docker container on Apollo.
+3. The LiteLLM Docker container on Server.
 4. Hermes configured to use the LiteLLM `smart_router` model.
 
 ### 9.2 Laptop Sleep or Network Changes
 
-If Windows sleeps, changes networks, or disconnects from Apollo, the SSH tunnel may stop working.
+If Windows sleeps, changes networks, or disconnects from Server, the SSH tunnel may stop working.
 
 Restart the tunnel after the laptop wakes or reconnects. Confirm connectivity with the `/v1/models` test before retrying Hermes.
 
@@ -404,19 +391,6 @@ sudo systemctl reload ssh
 ```
 
 Only restore the backup if appropriate for your current SSH configuration. Keep the existing administrative session open until you have confirmed access is still working.
-
-## 10. Security Checklist
-
-- [ ] llama.cpp listens only on Windows loopback: `127.0.0.1:8080`.
-- [ ] SSH uses `GatewayPorts clientspecified`.
-- [ ] `ss -ltnp` confirms the tunnel binds specifically to the Docker gateway address.
-- [ ] Port `18080` is not exposed through public router port forwarding.
-- [ ] LiteLLM master keys and OpenRouter API keys remain private.
-- [ ] `.env` files and credentials are excluded from source control.
-- [ ] LiteLLM port `4000` is restricted according to the LAN/VPN access requirements.
-- [ ] The container-to-tunnel `/v1/models` test succeeds.
-- [ ] LiteLLM logs confirm the expected backend for each routing tier.
-
 ---
 
-**Final topology:** Hermes Agent → LiteLLM `smart_router` on Apollo → local llama.cpp through the SSH reverse tunnel for SIMPLE/MEDIUM, with OpenRouter retained for COMPLEX/REASONING.
+**Final topology:** Hermes Agent → LiteLLM `smart_router` on Server → local llama.cpp through the SSH reverse tunnel for SIMPLE/MEDIUM, with OpenRouter retained for COMPLEX/REASONING.
