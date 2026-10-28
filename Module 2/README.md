@@ -51,6 +51,81 @@ The script asks only for the OpenRouter key, then generates the LiteLLM master k
 
 Never change `LITELLM_SALT_KEY` after the database begins storing encrypted secrets.
 
+### 1.1 Docker Compose — CPU Embedding Inference
+
+From `docker-compose.yml`:
+
+```yaml
+tei:
+  image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
+  command: --model-id BAAI/bge-base-en-v1.5
+  cpuset: "0-7"
+```
+
+Runs the BGE embedding model using TEI on the Xeon CPU, pinned to cores `0–7`. LiteLLM uses this service to generate prompt embeddings for semantic matching.
+
+### 1.2 LiteLLM `config.yaml` — Semantic Complexity Routing
+
+LiteLLM uses BGE embeddings to match incoming prompts against configured semantic phrases, with heuristic complexity scoring as a fallback.
+
+```yaml
+semantic_keyword_matching: true
+embedding_model: bge-embed
+match_threshold: 0.7
+```
+
+**Semantic keyword matching rules**
+
+These example phrases are configured in `config.yaml`:
+
+```yaml
+keyword_tier_rules:
+  - tier: SIMPLE
+    keywords:
+      - "hello"
+      - "what is the capital of France"
+      - "summarize this paragraph in one line"
+      - "translate this sentence into Malay"
+      - "rewrite this email to sound more polite"
+
+  - tier: COMPLEX
+    keywords:
+      - "write a python function that parses a CSV file"
+      - "fix this bug in my javascript code"
+      - "why does my bash script throw a syntax error"
+      - "convert this SQL query to pandas"
+      - "write a dockerfile for a fastapi app"
+
+  - tier: REASONING
+    keywords:
+      - "compare the trade-offs of three architectures and recommend one"
+      - "plan a migration strategy with risks and mitigations"
+      - "design a distributed system for a million requests per second"
+      - "analyze this business case and build a decision framework"
+```
+
+BGE embeddings enable matching based on semantic similarity rather than requiring exact wording.
+
+**Tier-to-model mapping**
+
+```yaml
+tiers:
+  SIMPLE: default-llm
+  MEDIUM: default-llm
+  COMPLEX: coder-llm
+  REASONING: reasoning-llm
+```
+
+| Tier | Backend | OpenRouter model |
+|---|---|---|
+| SIMPLE / MEDIUM | `default-llm` | `nvidia/nemotron-3.5-lightning:free` |
+| COMPLEX | `coder-llm` | `cohere/north-mini-code:free` |
+| REASONING | `reasoning-llm` | `nvidia/nemotron-3-ultra-550b-a55b:free` |
+
+`MEDIUM` has no explicit semantic keyword rule in this configuration. It maps to `default-llm` and may be selected by the heuristic complexity scorer.
+
+**In summary:** TEI generates embeddings on the Xeon CPU; LiteLLM uses semantic matching and heuristic fallback to select a tier and route each request to the corresponding model.
+
 ## 2. Start the stack
 
 ```bash
@@ -113,6 +188,7 @@ Reasoning-capable backends can consume much of the completion budget in reasonin
 
 Access LiteLLM UI Dashboard
 ```http://<gateway-host>:4000/ui```
+
 <img width="2556" height="1262" alt="image" src="https://github.com/user-attachments/assets/243cfa96-b71a-4a35-888b-b810f716b04a" />
 
 ## 6. Create application keys
@@ -124,6 +200,8 @@ In the LiteLLM UI create a Virtual Key with:
 - Alias: e.g. `test-app`
 
 This prevents an application from directly bypassing routing through `default-llm`, `coder-llm`, `reasoning-llm`, or `bge-embed`.
+
+Please keep the Virtual Key safe with you as you will need it to configure your Agentic Harness in a later module.
 
 ## 7. Evaluate routing quality
 
