@@ -101,7 +101,7 @@ flowchart LR
 
     FRAME["Frameworks and Model Ecosystem"]
 
-    RUNTIME["Optimized Runtimes and Compute Interfaces<br/>SYCL · Level Zero · OpenVINO"]
+    RUNTIME["Optimized Runtimes and Compute Interfaces<br/>SYCL · Level Zero"]
 
     HW["Heterogeneous Intel Compute<br/>CPU · Integrated GPU · NPU · Discrete GPU"]
 
@@ -868,7 +868,7 @@ Confirm that the required Intel GPU driver is loaded and that the device nodes e
 
 ### Runtime Layer
 
-Confirm that Level Zero, SYCL, OpenVINO, or the selected runtime can detect the intended device.
+Confirm that Level Zero, SYCL or the selected runtime can detect the intended device.
 
 ### Container Layer
 
@@ -1018,7 +1018,7 @@ This workshop incorporates open-source technologies and community projects acros
 
 The workshop materials are intended for technical learning and hands-on experimentation.
 
-Intel, the Intel logo, Intel Core, Intel Arc, Intel Xeon, OpenVINO, and oneAPI are trademarks of Intel Corporation or its subsidiaries.
+Intel, the Intel logo, Intel Core, Intel Arc, Intel Xeon and oneAPI are trademarks of Intel Corporation or its subsidiaries.
 
 Other names and brands may be claimed as the property of others.
 
