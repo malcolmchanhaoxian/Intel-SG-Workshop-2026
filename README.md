@@ -47,7 +47,7 @@ Different AI tasks have different compute requirements.
 A small local request does not always require a large remote model. A coding or reasoning task may need more compute. Retrieval, orchestration, tool execution, and model inference may also perform best on different engines.
 
 ```mermaid
-flowchart TB
+flowchart LR
     U["User or Application"] --> A["AI Application or Agent Harness"]
 
     A --> R["Routing and Orchestration"]
