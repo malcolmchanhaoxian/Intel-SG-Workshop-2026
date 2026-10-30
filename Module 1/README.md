@@ -91,6 +91,7 @@ xe
 
 Container:
 intel/llm-scaler-vllm:1.5
+(vLLM 0.26.1.dev0+g568afb3a1.d20260907)
 
 Model:
 Qwen/Qwen3.8-27B-FP8
@@ -1421,83 +1422,231 @@ The purpose of the exercise is to measure this behavior rather than assume the s
 
 ---
 
-# Part 21: Connect Hermes
+# Part 21: Connect Hermes 🪽
 
-We now have an OpenAI-compatible model service.
+## 21.0 Restart vLLM for Hermes Agent Workloads
 
-The important parameters are:
+The benchmark-serving configuration and agent-serving configuration have different requirements. When switching to the agent-serving configuration, restart the vLLM process with the tool-calling flags shown below.
+
+Return to the container running the TP=1 vLLM server and stop vLLM:
 
 ```text
-Base URL:
-http://GPU_SERVER_IP:8001/v1
+Ctrl+C
+```
 
-Model:
+Run the following commands inside the container:
+
+```bash
+export ZE_AFFINITY_MASK=0,1
+export VLLM_WORKER_MULTIPROC_METHOD=spawn
+
+/opt/venv/bin/vllm serve /llm/models/Qwen3.8-27B-FP8 \
+  --served-model-name Qwen3.8-27B \
+  --dtype auto \
+  --enforce-eager \
+  --host 0.0.0.0 \
+  --port 8001 \
+  --trust-remote-code \
+  --disable-sliding-window \
+  --gpu-memory-utilization 0.95 \
+  --max-model-len 65536 \
+  --max-num-batched-tokens 2048 \
+  --enable-prefix-caching \
+  --block-size 64 \
+  --quantization fp8 \
+  --tensor-parallel-size 2 \
+  --limit-mm-per-prompt '{"image":0,"video":0}' \
+  --enable-auto-tool-choice \
+  --tool-call-parser qwen3_xml \
+  --enable-log-requests \
+  --enable-log-outputs
+```
+
+Leave the terminal running while vLLM serves requests.
+
+### Verify the Model Endpoint
+
+Run on another Ubuntu terminal:
+
+```bash
+curl -sS http://127.0.0.1:8001/v1/models
+```
+
+The response should identify the served model as:
+
+```text
 Qwen3.8-27B
 ```
+
+We now have an OpenAI-compatible model service running on vLLM.
+
+The validated configuration uses:
+
+| Parameter | Value |
+|---|---|
+| Provider | Custom OpenAI-compatible |
+| API Mode | Chat Completions |
+| Base URL | http://GPU_SERVER_IP:8001/v1 |
+| Model | Qwen3.8-27B |
+| Tensor Parallelism | 2 |
 
 If Hermes runs directly on the GPU server, use:
 
-```text
-http://localhost:8001/v1
-```
+    http://localhost:8001/v1
 
 If Hermes runs on another machine, replace `localhost` with the reachable IP address of the vLLM server.
 
-Before configuring Hermes, test connectivity from the machine running Hermes:
+## 21.1 Verify API Connectivity
 
-```bash
-curl http://GPU_SERVER_IP:8001/v1/models
-```
+From the machine running Hermes, run:
 
-The response should contain:
+    curl.exe -sS http://GPU_SERVER_IP:8001/v1/models
 
-```text
-Qwen3.8-27B
-```
+The response should contain the served model name:
 
-Configure Hermes with:
+    Qwen3.8-27B
 
-```text
-Provider:
-OpenAI-compatible
+## 21.2 Configure Hermes
 
-Base URL:
-http://GPU_SERVER_IP:8001/v1
+Start the Hermes CLI:
 
-Model:
-Qwen3.8-27B
-```
+    hermes
 
-If the Hermes configuration requires an API-key field but the vLLM server was started without authentication, use the value required by the Hermes client configuration.
+Configure a custom OpenAI-compatible provider using:
+
+    Provider:
+    Custom
+
+    API Mode:
+    Chat Completions
+
+    Base URL:
+    http://GPU_SERVER_IP:8001/v1
+
+    Model:
+    Qwen3.8-27B
+
+The model name must match the `--served-model-name`
+specified when starting vLLM.
+
+## 21.3 Disable Streaming for Reliable Tool Calling
+
+For this validated self-hosted vLLM configuration,
+Hermes must use non-streaming requests.
+
+In Windows PowerShell, run:
+
+    hermes config set model.streaming false
+
+Verify the setting:
+
+    hermes config get model.streaming
+
+Expected output:
+
+    false
+
+The corresponding configuration is:
+
+    model:
+      streaming: false
+
+### ⚠️ Why Is Streaming Disabled?
+
+Non-streaming requests provide reliable structured tool-call handling with the self-hosted vLLM `qwen3_xml` configuration. This ensures tool calls are returned as structured `tool_calls` rather than being lost in the streaming response path.
+
+This setting applies to Hermes request handling only; it does not disable streaming at the vLLM server level.
+
+## 21.4 Configure vLLM for Tool Calling
+
+The vLLM server must enable automatic tool choice and use a parser compatible with the Qwen XML tool-call format.
+
+Include:
+
+    --enable-auto-tool-choice
+    --tool-call-parser qwen3_xml
+
+⚠️ The `qwen3_xml` parser is important. Using `qwen3_xml` allowed vLLM to return structured OpenAI-compatible `tool_calls`.
+
+## 21.5 Validate Hermes Tool Execution
+
+After changing the Hermes streaming configuration, exit and restart the Hermes CLI.
+
+Test terminal execution:
+
+    Use the terminal tool to run pwd. Return the exact output. Do not guess.
+
+Expected output on the Windows test machine:
+
+    /c/Windows/System32
+
+Test file reading:
+
+    Use the read_file tool to read C:\Windows\win.ini. Return the first 10 lines exactly. Do not use the terminal tool.
+
+The test file contains seven lines.
+
+Test sequential tool execution:
+
+    First, use the terminal tool to run pwd. Then use the read_file tool to read C:\Windows\win.ini. Report both results separately. Do not use any other tools.
+
+Both tool calls should execute successfully in the requested order.
+
+A final test is to ask Hermes to inspect a directory without modifying any files. For example:
+
+    Inspect my Desktop directory (C:\Users\Intel\Desktop) without modifying anything. List the folders and files, identify the five largest files if their sizes are available, and summarise the directory structure. Use the appropriate file and terminal tools. Do not create, edit, move, or delete anything.
+
+This tests multi-step tool execution, directory inspection, file-size analysis and structured reporting.
+
+## 21.7 Known-Good Configuration
+
+The validated Hermes configuration is:
+
+    Provider:
+    custom
+
+    Base URL:
+    http://GPU_SERVER_IP:8001/v1
+
+    API Mode:
+    chat_completions
+
+    Model:
+    Qwen3.8-27B
+
+    Streaming:
+    false
+
+## 21.8 Troubleshooting
+
+| Symptom | Action |
+|---|---|
+| Hermes returns `(empty)` during tool execution | Check `model.streaming` |
+| Tool calls are not recognised by vLLM | Check `--tool-call-parser qwen3_xml` |
+| Model endpoint is unreachable | Check the base URL and port 8001 |
+| Hermes uses the wrong model | Check the served model name |
+| Configuration changes do not take effect | Exit and restart Hermes |
+
+Useful configuration commands:
+
+    hermes config get model
+    hermes config get model.streaming
+    hermes config set model.streaming false
 
 The architecture is:
 
-```text
-Hermes
-   |
-   | OpenAI-compatible request
-   v
-vLLM API
-   |
-   | Request scheduling
-   v
-Intel Arc Pro GPU
-   |
-   v
-Qwen3.8-27B-FP8
-```
-
-Hermes does not need to know:
-
-- where the model files are stored
-- which GPU executes the model
-- whether TP=1 or TP=2 is used
-- how vLLM manages request scheduling
-- how model memory is allocated
-
-Hermes interacts with the API.
-
-vLLM manages the serving and compute infrastructure.
+    Hermes CLI
+         |
+         | OpenAI-compatible Chat Completions
+         v
+    vLLM API
+         |
+         | Tool-call parsing and scheduling
+         v
+    Intel Arc Pro B70 GPUs
+         |
+         v
+    Qwen3.8-27B-FP8
 
 ---
 
@@ -1545,9 +1694,16 @@ vLLM manages the serving and compute infrastructure.
 
 ## Agent
 
-- [ ] Hermes can reach the vLLM endpoint
-- [ ] Hermes uses `Qwen3.8-27B`
-- [ ] A prompt successfully travels from Hermes to vLLM
+  * [ ] Hermes can reach the vLLM endpoint
+  * [ ] Hermes uses the `Qwen3.8-27B` model
+  * [ ] Hermes uses the Chat Completions API
+  * [ ] Hermes has `model.streaming: false`
+  * [ ] vLLM uses `--enable-auto-tool-choice`
+  * [ ] vLLM uses `--tool-call-parser qwen3_xml`
+  * [ ] Terminal tool execution works
+  * [ ] File-reading tool execution works
+  * [ ] Sequential tool execution works
+  * [ ] Read-only directory inspection works
 
 ---
 
