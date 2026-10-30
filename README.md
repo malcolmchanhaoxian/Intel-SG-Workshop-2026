@@ -335,7 +335,7 @@ Connect the available model-serving endpoints to an agent harness.
 The agent harness can use the model APIs while also interacting with approved tools, files, applications, and external services.
 
 ```mermaid
-flowchart LR
+flowchart TB
     USER["User"] --> AGENT["Agent Harness"]
 
     AGENT --> MODEL["Model API"]
