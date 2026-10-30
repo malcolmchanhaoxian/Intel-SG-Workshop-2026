@@ -2,6 +2,10 @@
 
 This README documents how to configure LiteLLM running in Docker (Linux) to route SIMPLE and MEDIUM requests to a local llama.cpp server running on a Windows laptop. The connection uses an SSH reverse tunnel so the llama.cpp server does not need to listen directly on the LAN.
 
+In the previous modules, we already created our own LLM serving endpoints and we will bring those endpoints together.
+- **Module 0 / local inference:** `llama.cpp` server running via `SYCL0`
+- **Module 1 / edge inference:** vLLM running on the Intel Arc Pro B70 GPU
+
 ## 1. Architecture
 
 ```text
@@ -206,6 +210,7 @@ Check the following:
 
 Repeat the container connectivity test after correcting the issue.
 
+
 ## 6. Configure LiteLLM `config.yaml`
 
 Edit the host-side LiteLLM configuration file:
@@ -221,7 +226,7 @@ The current config routes prompts of different nature to different LLM. We have 
 # REASONING (model_name: reasoning-llm)
 ```
 
-### 6.1 SIMPLE/MEDIUM - Local llama.cpp Backend
+### 6.1.1 SIMPLE/MEDIUM - Local llama.cpp Backend
 
 Configure `default-llm` as follows:
 
@@ -236,25 +241,63 @@ Configure `default-llm` as follows:
 
 The `api_base` must match the Docker gateway and reverse-tunnel port.
 
-### 6.2 Retain the OpenRouter Backends
+### 6.1.2 COMPLEX - vLLM on B70 Edge Server
 
-Keep the existing COMPLEX and REASONING backends:
+You can also quickly extract the model structure of the vLLM endpoint on the GPU server.
 
-```yaml
-# COMPLEX / coding
-- model_name: coder-llm
-  litellm_params:
-    model: openrouter/cohere/north-mini-code:free
-    api_key: os.environ/OPENROUTER_API_KEY
-
-# REASONING
-- model_name: reasoning-llm
-  litellm_params:
-    model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
-    api_key: os.environ/OPENROUTER_API_KEY
+```
+curl.exe -sS http://GPU_SERVER_IP:8001/v1/models
+```
+The response should contain the served model name:
+```
+Qwen3.8-27B
 ```
 
-Ensure that `OPENROUTER_API_KEY` remains configured in the server environment. Never put the actual key in this README or commit it to source control.
+Configure `coder-llm` as follows:
+
+```yaml
+  # COMPLEX / coding
+  - model_name: coder-llm
+    litellm_params:
+      model: Qwen3.8-27B
+      api_base: http://GPU_SERVER_IP:8001/v1
+      api_key: none
+```
+
+## 6.2 Final Model List
+
+At this point, your `model_list` should conceptually contain:
+
+```yaml
+model_list:
+  # BGE embedding model served locally by TEI on Xeon.
+  - model_name: bge-embed
+    litellm_params:
+      model: openai/BAAI/bge-base-en-v1.5
+      api_base: http://tei:80/v1
+      api_key: none
+
+  # SIMPLE / MEDIUM
+  - model_name: default-llm
+    litellm_params:
+      model: openai/Hermes-3-Llama-3.1-8B-4bit
+      api_base: http://172.18.0.1:18080/v1
+      api_key: none
+
+  # COMPLEX / coding
+  - model_name: coder-llm
+    litellm_params:
+      model: Qwen3.8-27B
+      api_base: http://GPU_SERVER_IP:8001/v1
+      api_key: none
+
+  # REASONING
+  - model_name: reasoning-llm
+    litellm_params:
+      model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
+      api_key: os.environ/OPENROUTER_API_KEY
+```
+
 
 ### 6.3 Preserve the Smart Router Configuration
 
