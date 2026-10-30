@@ -1600,7 +1600,7 @@ A final test is to ask Hermes to inspect a directory without modifying any files
 
 This tests multi-step tool execution, directory inspection, file-size analysis and structured reporting.
 
-## 21.7 Known-Good Configuration
+## 21.6 Known-Good Configuration
 
 The validated Hermes configuration is:
 
@@ -1619,7 +1619,7 @@ The validated Hermes configuration is:
     Streaming:
     false
 
-## 21.8 Troubleshooting
+## 21.7 Troubleshooting
 
 | Symptom | Action |
 |---|---|
