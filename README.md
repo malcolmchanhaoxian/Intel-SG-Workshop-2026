@@ -673,11 +673,11 @@ It is a working AI deployment architecture.
 
 | Module | Focus | Primary outcome |
 |---|---|---|
-| Module 0 | Workshop preparation | Required tools, repositories, and environment are ready |
-| Module 0.5 | Local AI foundation | A local OpenAI-compatible inference endpoint is running |
+| Module 0 | Local AI foundation | A local OpenAI-compatible inference endpoint is running |
+| Module 0.5 | Local AI foundation | An agent harness is introduced locally and insulated within the device itself  |
 | Module 1 | Intel Arc Pro B70 model serving | A model is served and benchmarked on dedicated Intel GPUs |
 | Module 2 | Routing and orchestration | Multiple endpoints are available through a common routing layer |
-| Module 3 | Agent integration | An agent harness can use the model APIs and approved tools |
+| Module 3 | Agent integration | The agent harness is reintroduced and connected to the routing |
 | Final validation | End-to-end deployment | The complete heterogeneous AI flow is operational |
 
 Use the module directories in this repository to begin each exercise.
