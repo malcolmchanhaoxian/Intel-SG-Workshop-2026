@@ -293,6 +293,8 @@ For a more readable system overview, run:
 xpu-smi
 ```
 
+<img width="1025" height="417" alt="image" src="https://github.com/user-attachments/assets/0b7f5181-195e-450b-a37d-2f09868d3892" />
+
 The dashboard displays information such as:
 
 - GPU model
@@ -1352,11 +1354,13 @@ Values reported as `N/A` by XPU-SMI remain `N/A`.
 
 They are never interpreted as zero.
 
+<img width="1108" height="741" alt="image" src="https://github.com/user-attachments/assets/83b38d20-29a3-4a44-8472-46e9efa189b9" />
+
 ---
 
 # Part 20: Interpret Scaling
 
-The objective is not to prove:
+<img width="1087" height="601" alt="image" src="https://github.com/user-attachments/assets/c66c5277-ebb2-4ee0-95e5-e95628f955ae" />The objective is not to prove:
 
 ```text
 2 GPUs = 2x performance
