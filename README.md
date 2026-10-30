@@ -218,9 +218,54 @@ Participants learn to validate the complete execution path instead of assuming h
 
 ---
 
-### Stage 4: Move to Dedicated GPU Serving
+### Stage 4: Explore Local Agentic AI
 
-Move from client-side inference to a dedicated Intel GPU server.
+With local model inference working, the workshop now moves beyond a traditional chatbot and explores what happens when the model becomes part of an agentic system.
+
+Instead of simply sending a prompt to a model and receiving a response, an agent harness introduces additional behaviours around the model.
+
+```mermaid
+flowchart LR
+    USER["User"] -->
+    AGENT["Agent Harness"] -->
+    MODEL["Local Model Endpoint"] -->
+    GPU["Intel AI PC<br/>Integrated GPU"]
+
+    AGENT --> TOOLS["Tools and Local Resources"]
+    TOOLS --> AGENT
+
+    classDef user fill:#f3f8ff,stroke:#0071c5,color:#0b1f33;
+    classDef agent fill:#0071c5,stroke:#005a9c,color:#ffffff;
+    classDef service fill:#e9f5ff,stroke:#0071c5,color:#0b1f33;
+    classDef hardware fill:#7b2cbf,stroke:#4c1d73,color:#ffffff;
+
+    class USER user;
+    class AGENT agent;
+    class MODEL,TOOLS service;
+    class GPU hardware;
+```
+
+At this stage, everything can still remain local.
+
+The objective is to explore the difference between **model inference** and **agentic AI**.
+
+A model primarily receives input and generates output.
+
+An agent harness can place that model inside a broader execution loop where the model can help determine what to do next, interact with available tools, observe the result, and continue working toward the user's objective.
+
+This gives us our first glimpse of the final workshop architecture without yet introducing remote GPUs or intelligent routing.
+
+The important idea is:
+
+> **The model provides intelligence. The agent harness turns that intelligence into actions.**
+
+This simple local deployment becomes the foundation that we will later scale.
+
+---
+
+### Stage 5: Move to Dedicated GPU Serving
+
+Now move beyond client-side inference to a dedicated Intel GPU server.
 
 Deploy a model-serving engine on Intel Arc Pro B70 GPUs and expose the model through an OpenAI-compatible API.
 
@@ -242,11 +287,25 @@ flowchart LR
 
 This separation allows applications to consume the model as a network service instead of loading the model directly.
 
-It also creates the foundation for multi-user access, concurrency testing, routing, observability, and multi-GPU scaling.
+More importantly, the agent experience introduced in the previous stage no longer needs to be tied to a model running on the same machine.
+
+The OpenAI-compatible interface provides a common boundary between the application and the inference infrastructure behind it.
+
+This creates the foundation for:
+
+- Dedicated GPU inference
+- Multi-user access
+- Concurrency testing
+- Multi-GPU scaling
+- Routing
+- Observability
+- Remote agent-driven workloads
 
 ---
 
-### Stage 5: Measure Multi-GPU Scaling
+### Stage 6: Measure Multi-GPU Scaling
+
+Before adding more intelligence to the architecture, understand how the inference infrastructure behaves under load.
 
 Compare tensor-parallel configurations using repeatable prompts, concurrency levels, throughput measurements, latency measurements, and XPU telemetry.
 
@@ -267,19 +326,21 @@ The workshop compares configurations such as:
 
 ```text
 TP=1
-One model instance distributed across one GPU path
+One model instance using one GPU
 
 TP=2
-One model instance distributed across two GPU paths
+One model instance distributed across two GPUs
 ```
 
 Benchmark output and XPU-SMI telemetry are combined into a single comparison report.
 
 This creates a source-of-truth view of the serving configuration, benchmark result, and observed hardware behaviour.
 
+The result establishes something important for the next stage: we now have multiple model-serving capabilities that can be treated as infrastructure rather than as individual applications.
+
 ---
 
-### Stage 6: Introduce Semantic Routing
+### Stage 7: Introduce Semantic Routing
 
 Once multiple model endpoints exist, the next question is no longer only:
 
@@ -287,19 +348,20 @@ Once multiple model endpoints exist, the next question is no longer only:
 
 The next question becomes:
 
-> Which model should receive each request?
+> **Which model should receive each request?**
 
-LiteLLM is introduced as an abstraction, gateway, and routing layer across model endpoints.
+LiteLLM is introduced as an abstraction, gateway, and semantic routing layer across model endpoints.
 
 ```mermaid
-flowchart TB
-    USER["User Request"] --> ROUTER["LiteLLM Router"]
+flowchart LR
+    REQUEST["Incoming Request"] -->
+    ROUTER["LiteLLM<br/>Semantic Router"]
 
-    ROUTER --> SIMPLE["Simple or General Task<br/>Local Model"]
-    ROUTER --> CODE["Coding Task<br/>Coding Model"]
-    ROUTER --> REASON["Reasoning Task<br/>Reasoning Model"]
+    ROUTER --> SIMPLE["Simple / General<br/>Model"]
+    ROUTER --> CODE["Coding<br/>Model"]
+    ROUTER --> REASON["Reasoning<br/>Model"]
 
-    SIMPLE --> RESPONSE["Unified Response"]
+    SIMPLE --> RESPONSE["Unified<br/>API Response"]
     CODE --> RESPONSE
     REASON --> RESPONSE
 
@@ -308,86 +370,177 @@ flowchart TB
     classDef endpoint fill:#e9f5ff,stroke:#0071c5,color:#0b1f33;
     classDef response fill:#003c71,stroke:#00285a,color:#ffffff;
 
-    class USER input;
+    class REQUEST input;
     class ROUTER router;
     class SIMPLE,CODE,REASON endpoint;
     class RESPONSE response;
 ```
 
-Requests can be directed according to workload characteristics such as:
+Requests can now be directed according to characteristics such as:
 
 - General conversation
 - Coding
 - Reasoning
-- Model size
+- Model capability
 - Latency requirements
 - Endpoint availability
 - Locality
 - Context-length requirements
 
-The routing layer separates the application from the physical location of each model.
+The important architectural change is that the application no longer needs to know exactly where every model lives.
+
+Instead of:
+
+```text
+Application → Model
+```
+
+we now have:
+
+```text
+Application → Router → Appropriate Model
+```
+
+The routing layer therefore separates the application from the physical location and implementation of each model endpoint.
 
 ---
 
-### Stage 7: Connect an Agent Harness
+### Stage 8: Connect the Agent Harness to the Semantic Router
 
-Connect the available model-serving endpoints to an agent harness.
+Now return to the agentic AI concept introduced earlier in the workshop.
 
-The agent harness can use the model APIs while also interacting with approved tools, files, applications, and external services.
+Previously, the agent harness communicated directly with a local model:
+
+```text
+Agent Harness → Local Model
+```
+
+The architecture now evolves to:
+
+```text
+Agent Harness → Semantic Router → Appropriate Model
+```
 
 ```mermaid
-flowchart TB
-    USER["User"] --> AGENT["Agent Harness"]
+flowchart LR
+    USER["User"] -->
+    AGENT["Agent Harness"] -->
+    ROUTER["LiteLLM<br/>Semantic Router"]
 
-    AGENT --> MODEL["Model API"]
-    AGENT --> TOOLS["Approved Tools"]
-    AGENT --> FILES["Files and Knowledge"]
-    AGENT --> APPS["Applications and Services"]
+    ROUTER --> LOCAL["Local AI<br/>Endpoint"]
+    ROUTER --> CODE["Coding<br/>Endpoint"]
+    ROUTER --> REASON["Reasoning<br/>Endpoint"]
 
-    MODEL --> AGENT
+    AGENT --> TOOLS["Tools, Files<br/>and Applications"]
     TOOLS --> AGENT
-    FILES --> AGENT
-    APPS --> AGENT
 
-    AGENT --> RESULT["Completed Task or Response"]
+    LOCAL --> ROUTER
+    CODE --> ROUTER
+    REASON --> ROUTER
+
+    ROUTER --> AGENT
+    AGENT --> RESULT["Completed Task<br/>or Response"]
 
     classDef user fill:#f3f8ff,stroke:#0071c5,color:#0b1f33;
     classDef agent fill:#0071c5,stroke:#005a9c,color:#ffffff;
-    classDef resource fill:#e9f5ff,stroke:#0071c5,color:#0b1f33;
-    classDef result fill:#003c71,stroke:#00285a,color:#ffffff;
+    classDef router fill:#003c71,stroke:#00285a,color:#ffffff;
+    classDef endpoint fill:#e9f5ff,stroke:#0071c5,color:#0b1f33;
+    classDef result fill:#7b2cbf,stroke:#4c1d73,color:#ffffff;
 
     class USER user;
     class AGENT agent;
-    class MODEL,TOOLS,FILES,APPS resource;
+    class ROUTER router;
+    class LOCAL,CODE,REASON,TOOLS endpoint;
     class RESULT result;
 ```
 
-A model generates a response.
+This is a key transition in the workshop.
 
-An agent uses model  a user request
-2. Selecting a model
-3. Planning the task
-4. Invoking a tool
-5. Reading the tool result
-6. Continuing the task
-7. Returning the final response
+The agent harness is responsible for the agentic workflow and tool interaction.
 
-This is where model inference becomes part of an operational AI system.
+LiteLLM is responsible for selecting the appropriate model endpoint.
+
+The model endpoint is responsible for inference.
+
+The underlying Intel hardware provides the compute.
+
+Conceptually:
+
+```text
+Agent
+  ↓
+What should I do?
+
+Router
+  ↓
+Which model should handle it?
+
+Model Server
+  ↓
+Run the inference
+
+Intel Hardware
+  ↓
+Execute the workload
+```
+
+This separation means the agent does not need to be permanently coupled to one model or one accelerator.
+
+The model infrastructure can evolve independently underneath the agent interface.
+
+A task can therefore move through several layers:
+
+1. The user gives the agent a task
+2. The agent determines what needs to be done
+3. The request reaches the semantic router
+4. The router selects the appropriate model endpoint
+5. The selected model performs inference
+6. The agent receives the result
+7. The agent may invoke an available tool
+8. The agent observes the tool result
+9. The process continues until the task is complete
+
+This is where the earlier pieces of the workshop begin to operate as one system.
 
 ---
 
-### Stage 8: Reach the Final Deployment State
+### Stage 9: Reach the Final Deployment State
 
 The final workshop deployment brings the previous stages together.
+
+What began as:
+
+```text
+User
+  ↓
+Local Model
+  ↓
+Intel GPU
+```
+
+has evolved into:
+
+```text
+User
+  ↓
+Agent
+  ↓
+Semantic Router
+  ↓
+Model Serving Infrastructure
+  ↓
+Heterogeneous Intel Compute
+```
 
 The completed system spans:
 
 - Local inference
+- Local agentic AI
 - Remote inference
 - Dedicated Intel GPUs
 - Multi-GPU tensor parallelism
 - OpenAI-compatible model APIs
-- Semantic routing
+- Semantic model routing
 - Agent execution
 - Benchmarking
 - GPU telemetry
