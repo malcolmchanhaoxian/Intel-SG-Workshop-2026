@@ -1,27 +1,83 @@
-# Xeon Semantic/Complexity Routing Lab
+# Module 2 — Xeon Semantic / Complexity Routing
 
-A clean lab bundle validated during a test deployment:
+In **Module 0** and **Module 1**, we created separate LLM serving endpoints with different levels of compute and serving complexity.
+
+Both endpoints expose large-context LLM inference that our **Hermes agent harness** can consume.
+
+Until now, however, Hermes has had to connect to a specific LLM endpoint.
+
+As we add more inference options, this creates a new problem:
+
+> **Who decides which model Hermes should use?**
+
+Not every request needs to be sent to the largest or most expensive model.
+
+A simple request may be handled perfectly well by a model running locally on the PC or on an edge GPU. Other requests may benefit from a coding-oriented model or a larger reasoning model. Cloud inference should therefore be another resource in our inference pool, rather than the default destination for every prompt.
+
+In this module, we will consolidate these separate inference APIs behind **LiteLLM** and expose a single application-facing model:
+
+```text
+smart_router
+```
+
+Hermes no longer needs to decide which backend model to call.
+
+Instead:
+
+```text
+                             +--> Local / PC LLM
+                             |
+Hermes --> smart_router -----+--> Edge GPU LLM
+                             |
+                             +--> Cloud LLM
+                                  when required
+```
+
+The application sees **one API**. The infrastructure decides **which LLM should handle the request**.
+This lets us start thinking about inference as a workload-placement problem:
+
+> **Run each request on an appropriate model and compute resource instead of automatically consuming cloud tokens for every request.**
+
+In this lab, we will build that decision layer using:
 
 - `BAAI/bge-base-en-v1.5` served by Hugging Face TEI on Intel Xeon CPU
 - LiteLLM AI Gateway / Proxy
 - LiteLLM `auto_router/complexity_router`
 - BGE semantic keyword matching plus LiteLLM heuristic fallback
 - OpenRouter model backends
-- Single client-facing model name: `smart_router`
+- A single client-facing model name: `smart_router`
 
+Most importantly, we will **build and modify the routing policy ourselves in `config.yaml`**.
+
+By the end of the lab, Hermes will no longer need to know whether a prompt is handled locally, at the edge, or by a cloud model.
+
+It will simply call:
+
+```text
+smart_router
+```
+
+---
 
 ## Files
 
-- `docker-compose.yml` - TEI, PostgreSQL and LiteLLM
-- `config.yaml` - BGE, OpenRouter models and smart router
-- `.env.example` - environment variable template
-- `make-env.sh` - safely creates `.env` and matching PostgreSQL credentials
-- `test-stack.sh` - layer-by-layer health and routing test
-- `scan-free-models.sh` - tests current OpenRouter `:free` models
-- `route-eval.sh` - routing-quality evaluator
-- `tests/prompts.txt` - 15 labelled learner prompts; uses `TIER|prompt` format
+The Module 2 lab contains:
+
+- `docker-compose.yml` — TEI, PostgreSQL and LiteLLM
+- `config.yaml` — model definitions and routing policy
+- `.env.example` — environment variable template
+- `make-env.sh` — safely creates `.env` and matching PostgreSQL credentials
+- `test-stack.sh` — layer-by-layer health and routing test
+- `scan-free-models.sh` — tests current OpenRouter `:free` models
+- `route-eval.sh` — routing-quality evaluator
+- `tests/prompts.txt` — 15 labelled learner prompts using `TIER|prompt`
+
+---
 
 ## 0. Prerequisites (Ubuntu 24.04)
+
+By this stage, you should have the prerequisites all cleared in previous Module. Skip to Part 1.
+For the uninitiated, please ensure Docker is installed.
 
 Install Docker Engine / Compose using Docker's official Ubuntu repository. Also install `jq`, `curl`, and `openssl`.
 
@@ -51,7 +107,57 @@ The script asks only for the OpenRouter key, then generates the LiteLLM master k
 
 Never change `LITELLM_SALT_KEY` after the database begins storing encrypted secrets.
 
+
+### 1.1 Semantic Complexity Routing - From multiple endpoints to one inference service
+
+Before starting the containers, let's understand what we are building.
+
+In Modules 0 and 1, the application effectively had to know which LLM endpoint it wanted:
+
+```text
+Hermes ----------> LLM Endpoint A          OR          Hermes ----------> LLM Endpoint B
+```
+
+That works when we only have one or two inference options.
+But as our infrastructure grows, we may have:
+
+```text
+Local PC model  |  Edge GPU model  |  Large edge model  |  Coding model  |  Reasoning model  |  Cloud API
+```
+
+We do not want Hermes to contain logic such as:
+
+```text
+if simple:          if coding:            if difficult:
+    use model A        use model B            use model C
+```
+
+That couples the application to the infrastructure. Instead, we are going to introduce an inference gateway:
+
+```text
+                             +--> Model A
+                             |
+Hermes --> smart_router -----+--> Model B
+                             |
+                             +--> Model C
+```
+
+From Hermes' perspective there is now only:
+
+```text
+smart_router
+```
+
 ### 1.1 Docker Compose — CPU Embedding Inference
+
+Conceptually, LiteLLM uses BGE embeddings to match incoming prompts against configured semantic phrases, with heuristic complexity scoring as a fallback.
+
+```text
+Incoming Prompt --> LiteLLM Router --> BGE Embedding Model --> Semantic comparison --> Routing decision
+                                          on Xeon CPU
+```
+
+We are therefore using the Xeon not simply as another place to run a generative LLM. The CPU is participating in the **inference decision layer**.
 
 From `docker-compose.yml`:
 
@@ -62,15 +168,12 @@ tei:
   cpuset: "0-7"
 ```
 
-Runs the BGE embedding model using TEI on the Xeon CPU, pinned to cores `0–7`. LiteLLM uses this service to generate prompt embeddings for semantic matching.
+Runs the BGE embedding model using TEI on the Xeon CPU, pinned to cores `0–7`. LiteLLM uses this service to generate prompt embeddings for semantic matching. 
 
-### 1.2 LiteLLM `config.yaml` — Semantic Complexity Routing
-
-LiteLLM uses BGE embeddings to match incoming prompts against configured semantic phrases, with heuristic complexity scoring as a fallback.
+Now we will go to `config.yaml`. Look for `match_threshold`.
+This controls the configured semantic-match threshold for this lab.
 
 ```yaml
-semantic_keyword_matching: true
-embedding_model: bge-embed
 match_threshold: 0.7
 ```
 
@@ -115,16 +218,137 @@ tiers:
   COMPLEX: coder-llm
   REASONING: reasoning-llm
 ```
+`MEDIUM` has no explicit semantic keyword rule in this configuration. It maps to `default-llm` and may be selected by the heuristic complexity scorer.
 
-| Tier | Backend | OpenRouter model |
+The current lab configuration maps the abstract model names to OpenRouter models.
+
+| Tier | Router model | OpenRouter backend |
 |---|---|---|
-| SIMPLE / MEDIUM | `default-llm` | `nvidia/nemotron-3.5-lightning:free` |
+| SIMPLE | `default-llm` | `nvidia/nemotron-3.5-lightning:free` |
+| MEDIUM | `default-llm` | `nvidia/nemotron-3.5-lightning:free` |
 | COMPLEX | `coder-llm` | `cohere/north-mini-code:free` |
 | REASONING | `reasoning-llm` | `nvidia/nemotron-3-ultra-550b-a55b:free` |
 
-`MEDIUM` has no explicit semantic keyword rule in this configuration. It maps to `default-llm` and may be selected by the heuristic complexity scorer.
-
 **In summary:** TEI generates embeddings on the Xeon CPU; LiteLLM uses semantic matching and heuristic fallback to select a tier and route each request to the corresponding model.
+
+```yaml
+model_list:
+  # BGE embedding model served locally by TEI on Xeon.
+  - model_name: bge-embed
+    litellm_params:
+      model: openai/BAAI/bge-base-en-v1.5
+      api_base: http://tei:80/v1
+      api_key: none
+
+  # SIMPLE / MEDIUM
+  - model_name: default-llm
+    litellm_params:
+      model: openai/Hermes-3-Llama-3.1-8B-4bit
+      api_base: http://172.18.0.1:18080/v1
+      api_key: none
+
+  # COMPLEX / coding
+  - model_name: coder-llm
+    litellm_params:
+      model: openrouter/cohere/north-mini-code:free
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # REASONING
+  - model_name: reasoning-llm
+    litellm_params:
+      model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
+      api_key: os.environ/OPENROUTER_API_KEY
+```
+
+
+### 1.2 Modify the Semantic Routing Logic
+For this lab, `config.yaml` has used OpenRouter models to help us verify that the routing logic works.
+But that is **not the final architecture we are trying to build**.
+
+In the previous modules, we already created our own LLM serving endpoints:
+- **Module 0 / local inference:** `llama.cpp` server running via `SYCL0`
+- **Module 1 / edge inference:** vLLM running on the Intel Arc Pro B70 GPU
+
+We are now going to bring those endpoints together.
+
+Instead of sending SIMPLE, MEDIUM and COMPLEX requests to three different OpenRouter models, we will edit `config.yaml` so that LiteLLM routes requests to the infrastructure we have already deployed.
+
+Our target architecture is:
+
+```text
+                                      +--> SIMPLE / MEDIUM
+                                      |      |
+                                      |      +--> llama.cpp / SYCL0
+                                      |
+Hermes --> LiteLLM --> smart_router --+--> COMPLEX
+                                      |      |
+                                      |      +--> B70 / vLLM
+                                      |
+                                      +--> REASONING
+                                             |
+                                             +--> Cloud LLM
+```
+
+### Llama.cpp SYCL0 
+In Module 0, we started a Llama.cpp server locally on the laptop and we can extract the model structure.
+
+```
+$Models = Invoke-RestMethod `
+    -Uri "http://172.18.0.1:18080/v1/models" `
+    -Method Get
+
+$Models.data |
+    Select-Object id, object
+```
+
+The response should contain the served model name:
+```
+Hermes-3-Llama-3.1-8B-4bit
+```
+
+### B70 vLLM
+And you can also quickly extract the model structure of the vLLM endpoint on the GPU server.
+```
+curl.exe -sS http://GPU_SERVER_IP:8001/v1/models
+```
+The response should contain the served model name:
+```
+Qwen3.8-27B
+```
+
+### Update your completed model configuration
+
+At this point, your `model_list` should conceptually contain:
+
+```yaml
+model_list:
+  # BGE embedding model served locally by TEI on Xeon.
+  - model_name: bge-embed
+    litellm_params:
+      model: openai/BAAI/bge-base-en-v1.5
+      api_base: http://tei:80/v1
+      api_key: none
+
+  # SIMPLE / MEDIUM
+  - model_name: default-llm
+    litellm_params:
+      model: openai/Hermes-3-Llama-3.1-8B-4bit
+      api_base: http://172.18.0.1:18080/v1
+      api_key: none
+
+  # COMPLEX / coding
+  - model_name: coder-llm
+    litellm_params:
+      model: Qwen3.8-27B
+      api_base: http://GPU_SERVER_IP:8001/v1
+      api_key: none
+
+  # REASONING
+  - model_name: reasoning-llm
+    litellm_params:
+      model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
+      api_key: os.environ/OPENROUTER_API_KEY
+```
 
 ## 2. Start the stack
 
