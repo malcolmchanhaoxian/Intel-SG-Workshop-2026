@@ -243,9 +243,8 @@ model_list:
   # SIMPLE / MEDIUM
   - model_name: default-llm
     litellm_params:
-      model: openai/Hermes-3-Llama-3.1-8B-4bit
-      api_base: http://172.18.0.1:18080/v1
-      api_key: none
+      model: openrouter/nvidia/nemotron-3.5-lightning:free
+      api_key: os.environ/OPENROUTER_API_KEY
 
   # COMPLEX / coding
   - model_name: coder-llm
@@ -261,94 +260,12 @@ model_list:
 ```
 
 
-### 1.2 Modify the Semantic Routing Logic
 For this lab, `config.yaml` has used OpenRouter models to help us verify that the routing logic works.
 But that is **not the final architecture we are trying to build**.
 
-In the previous modules, we already created our own LLM serving endpoints:
-- **Module 0 / local inference:** `llama.cpp` server running via `SYCL0`
-- **Module 1 / edge inference:** vLLM running on the Intel Arc Pro B70 GPU
+We will address the Semantic Routing Logic in the next [Module 3](https://github.com/malcolmchanhaoxian/Intel-SG-Workshop-2026/blob/main/Module%203/README-Module-4.md). For now, we will focus on getting the LiteLLM router up and running.
 
-We are now going to bring those endpoints together.
-
-Instead of sending SIMPLE, MEDIUM and COMPLEX requests to three different OpenRouter models, we will edit `config.yaml` so that LiteLLM routes requests to the infrastructure we have already deployed.
-
-Our target architecture is:
-
-```text
-                                      +--> SIMPLE / MEDIUM
-                                      |      |
-                                      |      +--> llama.cpp / SYCL0
-                                      |
-Hermes --> LiteLLM --> smart_router --+--> COMPLEX
-                                      |      |
-                                      |      +--> B70 / vLLM
-                                      |
-                                      +--> REASONING
-                                             |
-                                             +--> Cloud LLM
-```
-
-### Llama.cpp SYCL0 
-In Module 0, we started a Llama.cpp server locally on the laptop and we can extract the model structure.
-
-```
-$Models = Invoke-RestMethod `
-    -Uri "http://172.18.0.1:18080/v1/models" `
-    -Method Get
-
-$Models.data |
-    Select-Object id, object
-```
-
-The response should contain the served model name:
-```
-Hermes-3-Llama-3.1-8B-4bit
-```
-
-### B70 vLLM
-And you can also quickly extract the model structure of the vLLM endpoint on the GPU server.
-```
-curl.exe -sS http://GPU_SERVER_IP:8001/v1/models
-```
-The response should contain the served model name:
-```
-Qwen3.8-27B
-```
-
-### Update your completed model configuration
-
-At this point, your `model_list` should conceptually contain:
-
-```yaml
-model_list:
-  # BGE embedding model served locally by TEI on Xeon.
-  - model_name: bge-embed
-    litellm_params:
-      model: openai/BAAI/bge-base-en-v1.5
-      api_base: http://tei:80/v1
-      api_key: none
-
-  # SIMPLE / MEDIUM
-  - model_name: default-llm
-    litellm_params:
-      model: openai/Hermes-3-Llama-3.1-8B-4bit
-      api_base: http://172.18.0.1:18080/v1
-      api_key: none
-
-  # COMPLEX / coding
-  - model_name: coder-llm
-    litellm_params:
-      model: Qwen3.8-27B
-      api_base: http://GPU_SERVER_IP:8001/v1
-      api_key: none
-
-  # REASONING
-  - model_name: reasoning-llm
-    litellm_params:
-      model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
-      api_key: os.environ/OPENROUTER_API_KEY
-```
+---
 
 ## 2. Start the stack
 
