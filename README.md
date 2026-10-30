@@ -1,3 +1,4 @@
+<img width="1952" height="544" alt="image" src="https://github.com/user-attachments/assets/89321df3-e077-4448-969e-0ee17176f68a" />
 <div align="center">
 
 # Intel SG AI Workshop 2026
