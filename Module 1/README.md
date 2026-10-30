@@ -521,9 +521,7 @@ deactivate
 
 # Part 7: Start the llm-scaler Container
 
-Expose both Intel GPUs to one persistent container.
-
-TP=1 and TP=2 will then be controlled from inside the same container.
+Expose both Intel GPUs to the same container for the TP=1 and TP=2 experiments.
 
 Run:
 
