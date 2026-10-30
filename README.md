@@ -83,6 +83,9 @@ This is the foundation of heterogeneous AI.
 
 ## Intel Hardware and Software Layers
 
+### Intel Heterogenous AI Software Stack
+<img width="2000" height="1125" alt="image" src="https://github.com/user-attachments/assets/5195b64a-41f4-46f2-9145-b2071891200b" />
+
 The workshop connects Intel hardware to the open AI software ecosystem used by developers and infrastructure teams.
 
 ```mermaid
