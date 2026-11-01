@@ -139,7 +139,15 @@ Intel GPU
 
 ## 4. Download the model
 
-Since we will be demonstrating Agentic OS on Hermes Agent, we will select a suitable model candidate for the demonstration.
+Different CPU model will have an impact on the performance of the LLM inferencing performance. In the time of writing, multiple models have been tested with varying level of performance on Meteor Lake (Intel Core Ultra Series 1):
+
+| Model | Context (tokens) | Performance | Experience |
+|---|---:|---:|---|
+| [Qwen3.5-4B-Q4_K_M.gguf](https://huggingface.co/unsloth/Qwen3.5-4B-GGUF?show_file_info=Qwen3.5-4B-Q4_K_M.gguf) | 4,096 | ~3–5 tok/s | Passable |
+| [Qwen3.5-2B-Q4_K_M.gguf](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF?show_file_info=Qwen3.5-2B-Q4_K_M.gguf) | 8,192 | 19+ tok/s | Beyond reading speed |
+| [Qwen3.5-2B-Q4_K_M.gguf](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF?show_file_info=Qwen3.5-2B-Q4_K_M.gguf) | 64,000 | 16+ tok/s | Beyond reading speed |
+
+Since we will be demonstrating Agentic OS on Hermes Agent, we have selected a more mainstream model candidate for the agentic harness we will be using:
 [Download](https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B-GGUF/resolve/main/Hermes-3-Llama-3.1-8B.Q4_K_M.gguf?download=true) the Hermes-3-Llama-3.1-8B-GGUF (4-bit) directly from Huggingface.
 
 Set the model path (Example, we downloaded to the "C:\Users\Intel\Downloads\..." directory:
@@ -166,10 +174,12 @@ From the module directory, run:
 .\llama-sycl\llama-cli.exe `
     -m $Model `
     -ngl 99 `
+    --reasoning-budget 0 `
     -p "Hello"
 ```
 
 `-ngl 99` requests that the model layers be offloaded to the GPU.
+`--reasoning-budget 0` requests the model to suppress thinking.
 
 When the interactive prompt appears, try:
 
@@ -201,7 +211,8 @@ Run:
 ```powershell
 .\llama-sycl\llama-bench.exe `
     -m $Model `
-    -ngl 99
+    -ngl 99 `
+    --reasoning-budget 0
 ```
 
 Find these two tests in the results:
@@ -249,7 +260,7 @@ Local response
 
 So far you have run the model directly with `llama-cli`.
 
-The same `llama.cpp` package also includes `llama-server`, which can expose the model through an HTTP API, including OpenAI-compatible chat-completion endpoints. llama.cpp HTTP Server 【1-a74394】
+The same `llama.cpp` package also includes `llama-server`, which can expose the model through an HTTP API, including OpenAI-compatible chat-completion endpoints.
 
 The software path remains:
 
@@ -274,7 +285,7 @@ If you opened a new PowerShell window, return to the module directory and set th
 ```powershell
 cd "$HOME\Desktop\module-0-sycl-local-inference"
 
-$Model = ".\models\Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
+$Model = <Model Path>
 ```
 
 Start `llama-server`:
@@ -283,6 +294,7 @@ Start `llama-server`:
 .\llama-sycl\llama-server.exe `
     -m $Model `
     -ngl 99 `
+    -reasoning-budget 0 `
     --port 8080
 ```
 
