@@ -41,7 +41,8 @@ Exact GPU names, memory values, compute units, driver versions and performance r
 Open PowerShell:
 
 ```powershell
-cd "$HOME\Desktop"
+$PATH = (New-Object -ComObject Shell.Application).Namespace(0x10).Self.Path
+cd $PATH
 
 New-Item `
     -ItemType Directory `
@@ -73,7 +74,7 @@ You can directly download it here [llama-b11873-bin-win-sycl-x64.zip](https://gi
 Extract the complete archive into:
 
 ```text
-module-0-sycl-local-inference\llama-sycl
+C:<DESKTOP PATH>\module-0-sycl-local-inference\llama-sycl
 ```
 
 Keep the supplied DLL files together with the executables.
