@@ -97,7 +97,7 @@ flowchart LR
 
     ROUTE["Semantic Routing, Model Selection and Policy"]
 
-    SERVE["Model Serving<br/>llama.cpp · LM Studio · vLLM"]
+    SERVE["Model Serving<br/>llama.cpp · vLLM"]
 
     FRAME["Frameworks and Model Ecosystem"]
 
@@ -562,7 +562,7 @@ flowchart LR
     ROUTER --> GPU1["GPU Endpoint<br/>Intel Arc Pro B70<br/>TP=1"]
     ROUTER --> GPU2["Scaled GPU Endpoint<br/>Intel Arc Pro B70<br/>TP=2"]
 
-    LOCAL --> LLAMA["llama.cpp or LM Studio"]
+    LOCAL --> LLAMA["llama.cpp"]
     GPU1 --> VLLM1["vLLM Model Server"]
     GPU2 --> VLLM2["vLLM Model Server"]
 
@@ -736,7 +736,6 @@ Depending on the module, the workshop may use:
 - A Linux GPU server
 - Docker containers
 - llama.cpp
-- LM Studio
 - vLLM
 - LiteLLM
 - XPU-SMI
@@ -949,7 +948,6 @@ OpenAI-compatible APIs allow the model-serving layer to change without requiring
 The same application can interact with:
 
 - A local llama.cpp endpoint
-- An LM Studio endpoint
 - A vLLM endpoint
 - A routed LiteLLM endpoint
 - Another compatible endpoint added later
