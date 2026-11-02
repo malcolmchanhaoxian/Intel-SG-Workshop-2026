@@ -293,7 +293,7 @@ Start `llama-server`:
 .\llama-sycl\llama-server.exe `
     -m $Model `
     -ngl 99 `
-    -reasoning-budget 0 `
+    --reasoning-budget 0 `
     --port 8080
 ```
 
