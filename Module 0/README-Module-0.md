@@ -211,8 +211,7 @@ Run:
 ```powershell
 .\llama-sycl\llama-bench.exe `
     -m $Model `
-    -ngl 99 `
-    --reasoning-budget 0
+    -ngl 99
 ```
 
 Find these two tests in the results:
