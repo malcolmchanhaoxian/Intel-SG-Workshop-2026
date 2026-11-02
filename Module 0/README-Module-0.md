@@ -282,7 +282,7 @@ Intel GPU
 If you opened a new PowerShell window, return to the module directory and set the model path again:
 
 ```powershell
-cd "$HOME\Desktop\module-0-sycl-local-inference"
+cd "<DESKTOP PATH>\module-0-sycl-local-inference"
 
 $Model = <Model Path>
 ```
