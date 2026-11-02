@@ -172,6 +172,16 @@ For the local LLM on laptop, let's skip reasoning:
 hermes config check
 ```
 
+If everything has been configured successfully, the config check should return the following response:
+```text
+📋 Configuration Status
+
+  Config version: 51 ✓
+
+  Required:
+
+```
+
 ## 4. Start and Test the Hermes agent
 
 Start the interactive Hermes CLI:
