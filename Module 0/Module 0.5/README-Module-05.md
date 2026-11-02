@@ -114,21 +114,39 @@ Based on the API endpoint we configured in Step 1 - we will configure the Hermes
 http://127.0.0.1:8080/v1
 ```
 
+The `llama-server` used in this module is running locally without API authentication. So we can leave it as empty, press 'Enter'
+
+#### Select (2) Chat Completions as compatibility mode
+```text
+Select API compatibility mode:
+  1. Auto-detect [current]
+     Use Hermes URL heuristics; best for standard OpenAI-compatible endpoints.
+  2. Chat Completions
+     Use /chat/completions for standard OpenAI-compatible servers.
+  3. Responses / Codex
+     Use /responses for Codex-compatible tool-calling backends.
+  4. Anthropic Messages
+     Use /v1/messages for Anthropic-compatible endpoints.
+```
+
 ### Model
 
 ```text
-Hermes-3-Llama-3.1-8B-4bit
+  Detected model: Qwen-3.5-2B-Q4
+  Use this model? [Y/n]:
 ```
 
-
-### API key
-
-The `llama-server` used in this module is running locally without API authentication.
+This matches the model that we served, so enter 'Y'
 
 ### Context length
 
 When prompted for the context length, use: ```64000```.
 Hermes has a minimum floor of 64000 tokens for context window.
+
+### Model Endpoint Name
+```text
+Display name [Local (127.0.0.1:8080)]: Local Llama Server
+```
 
 ### Validate the configuration:
 
