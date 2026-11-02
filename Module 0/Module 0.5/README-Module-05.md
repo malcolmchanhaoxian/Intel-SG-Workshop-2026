@@ -148,6 +148,24 @@ Hermes has a minimum floor of 64000 tokens for context window.
 Display name [Local (127.0.0.1:8080)]: Local Llama Server
 ```
 
+### Reasoning
+For the local LLM on laptop, let's skip reasoning:
+
+```
+ Select reasoning effort:
+  Select by number, Enter to confirm.
+
+  (○)  1. minimal
+  (○)  2. low
+  (●)  3. medium  ← currently in use
+  (○)  4. high
+  (○)  5. xhigh
+  (○)  6. max
+  (○)  7. ultra
+  (○)  8. Disable reasoning
+  (○)  9. Skip (keep current)
+```
+
 ### Validate the configuration:
 
 ```powershell
