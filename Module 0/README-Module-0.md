@@ -293,6 +293,7 @@ Start `llama-server`:
 .\llama-sycl\llama-server.exe `
     -m $Model `
     -ngl 99 `
+    -c 65536
     --alias "Hermes-3-Llama-3.1-8B-4bit"
     --reasoning-budget 0 `
     --port 8080
