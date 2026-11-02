@@ -215,8 +215,8 @@ Repeat the container connectivity test after correcting the issue.
 
 Edit the host-side LiteLLM configuration file:
 
-```text
-~/Intel-SG-Workshop-2026/Module 2/config.yaml
+```bash
+vim ~/Intel-SG-Workshop-2026/Module\ 2/config.yaml
 ```
 
 The current config routes prompts of different nature to different LLM. We have split the prompt type to the below format as explained previously:
