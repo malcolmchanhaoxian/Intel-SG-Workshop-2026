@@ -309,6 +309,8 @@ Keep the existing `smart_router` model and complexity-routing rules. The intende
     model: auto_router/complexity_router
     drop_params: true
     complexity_router_config:
+      max_tokens_from_tier_model: false
+
       tiers:
         SIMPLE: default-llm
         MEDIUM: default-llm
