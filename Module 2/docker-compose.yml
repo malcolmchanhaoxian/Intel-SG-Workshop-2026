@@ -1,7 +1,7 @@
 services:
   tei:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
-    command: --model-id BAAI/bge-base-en-v1.5
+    command: --model-id BAAI/bge-base-en-v1.5 --max-client-batch-size 64
     cpuset: "0-7"
     volumes:
       - ./tei-data:/data
