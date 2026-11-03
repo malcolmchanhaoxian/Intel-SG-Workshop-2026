@@ -348,7 +348,103 @@ Uvicorn running on http://0.0.0.0:4000
 
 If the application fails to start, inspect the logs before making additional configuration changes.
 
-## 8. Verify End-to-End Routing
+## 8. Connect to Hermes
+
+```powershell
+hermes model
+```
+
+Choose the option for:
+
+```text
+Custom / OpenAI-compatible endpoint
+```
+
+### Base URL
+
+```text
+http://<LITELLM SERVER IP>:4000/v1
+```
+
+For API authentication - remember your [virtual key](https://github.com/malcolmchanhaoxian/Intel-SG-Workshop-2026/blob/main/Module%202/README-Module-2.md#6-create-application-keys)? 
+Enter it here when prompted.
+
+### Select (2) Chat Completions as compatibility mode
+
+```text
+Select API compatibility mode:
+  1. Auto-detect [current]
+     Use Hermes URL heuristics; best for standard OpenAI-compatible endpoints.
+  2. Chat Completions
+     Use /chat/completions for standard OpenAI-compatible servers.
+  3. Responses / Codex
+     Use /responses for Codex-compatible tool-calling backends.
+  4. Anthropic Messages
+     Use /v1/messages for Anthropic-compatible endpoints.
+```
+
+### Model
+
+```text
+  Detected model: smart_router
+  Use this model? [Y/n]:
+```
+
+This matches the model that we served, so enter 'Y'
+
+### Context length
+
+When prompted for the context length, use: ```64000```.
+Hermes has a minimum floor of 64000 tokens for context window.
+
+### Model Endpoint Name
+
+```text
+Display name [Local (127.0.0.1:8080)]: LiteLLM Smart Router
+```
+
+### Reasoning
+
+For the local LLM on laptop, let's skip reasoning:
+
+```
+ Select reasoning effort:
+  Select by number, Enter to confirm.
+
+  (○)  1. minimal
+  (○)  2. low
+  (●)  3. medium  ← currently in use
+  (○)  4. high
+  (○)  5. xhigh
+  (○)  6. max
+  (○)  7. ultra
+  (○)  8. Disable reasoning
+  (○)  9. Skip (keep current)
+```
+
+### Validate the configuration:
+
+```powershell
+hermes config check
+```
+
+If everything has been configured successfully, the config check should return the following response:
+```text
+📋 Configuration Status
+
+  Config version: 51 ✓
+
+  Required:
+
+```
+
+### Start and Test the Hermes agent
+
+Start the interactive Hermes CLI:
+
+```powershell
+hermes
+```
 
 ### 8.1 Test SIMPLE or MEDIUM
 
