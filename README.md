@@ -89,6 +89,8 @@ This is the foundation of heterogeneous AI.
 
 The workshop connects Intel hardware to the open AI software ecosystem used by developers and infrastructure teams.
 
+<img width="1600" height="900" alt="image" src="https://github.com/user-attachments/assets/3aae7003-dc61-43ba-b545-d80e85fa93ba" />
+
 ```mermaid
 flowchart LR
     APP["Applications and Agent Experiences"]
