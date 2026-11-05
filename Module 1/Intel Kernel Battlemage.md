@@ -40,6 +40,7 @@ The validated workshop remediation path used Ubuntu 24.04 with the Intel Multi-A
 ## 3. Obtain the Multi-Arc Offline Installer
 
 Download the Intel Multi-Arc Battlemage offline installer through the approved Intel download page and accept the applicable software license agreement.
+Click [HERE](https://cdrdv2.intel.com/v1/dl/getContent/929595/929588?filename=multi-arc-bmg-offline-installer-26.39.10.2-combo.tar.xz) to agree to SLA before downloading the package.
 
 Validated package:
 
