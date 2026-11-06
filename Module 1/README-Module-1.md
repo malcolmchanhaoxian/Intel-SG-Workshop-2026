@@ -1463,6 +1463,27 @@ export VLLM_WORKER_MULTIPROC_METHOD=spawn
   --enable-log-requests \
   --enable-log-outputs
 ```
+```
+export ZE_AFFINITY_MASK=0
+export VLLM_WORKER_MULTIPROC_METHOD=spawn
+
+/opt/venv/bin/vllm serve /llm/models/Qwen-SEA-LION-v4-32B-IT-4BIT \
+  --served-model-name Qwen-SEA-LION-v4-32B-IT-4BIT \
+  --dtype auto \
+  --host 0.0.0.0 \
+  --port 8001 \
+  --trust-remote-code \
+  --disable-sliding-window \
+  --gpu-memory-utilization 0.95 \
+  --max-model-len 65536 \
+  --max-num-seqs 1 \
+  --kv-cache-dtype fp8_e4m3 \
+  --limit-mm-per-prompt '{"image":0,"video":0}' \
+  --enable-auto-tool-choice \
+  --tool-call-parser hermes \
+  --enable-log-requests \
+  --enable-log-outputs
+```
 
 Leave the terminal running while vLLM serves requests.
 
