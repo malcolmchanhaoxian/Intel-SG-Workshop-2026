@@ -1466,6 +1466,15 @@ export VLLM_WORKER_MULTIPROC_METHOD=spawn
 
 Leave the terminal running while vLLM serves requests.
 
+### Model Family and KVcache Sizing
+Depending on the host server that you will be accessing on the actual day of the event (TP=1 or TP >1) - it will impact the selection of the model that you will be using.
+So pick the right model to download and the right tool call parser on vLLM
+
+| Model | TP | Actual tool syntax | vLLM parser |
+|---|---|---|---|
+| Qwen3.8-27B | TP > 1 | Qwen3 function/parameter XML | `qwen3_xml` |
+| Qwen-SEA-LION-v4-32B-IT-4BIT | TP = 1 | `<tool_call>` + JSON | `hermes` |
+
 ### Verify the Model Endpoint
 
 Run on another Ubuntu terminal:
