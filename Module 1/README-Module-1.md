@@ -1322,51 +1322,40 @@ Return to the container running the TP=1 vLLM server and stop vLLM:
 Ctrl+C
 ```
 
+Command cheat-sheet if you exit container by mistake:
+```bash
+docker exec -it llm-scaler /bin/bash
+
+#find and kill background vllm worker
+ps -ef | grep '[v]llm'
+pkill -TERM -f '/opt/venv/bin/vllm'
+```
+
+Depending on the edge server setup that you have been provided; modify `export ZE_AFFINITY_MASK=0` accordingly.
+If you are assigned GPU 0, then value will be `0`, GPU 1 will be `1`, so on and so forth...
+
 Run the following commands inside the container:
 
 ```bash
-export ZE_AFFINITY_MASK=0,1
-export VLLM_WORKER_MULTIPROC_METHOD=spawn
-
-/opt/venv/bin/vllm serve /llm/models/Qwen3.8-27B-FP8 \
-  --served-model-name Qwen3.8-27B \
-  --dtype auto \
-  --enforce-eager \
-  --host 0.0.0.0 \
-  --port 8001 \
-  --trust-remote-code \
-  --disable-sliding-window \
-  --gpu-memory-utilization 0.95 \
-  --max-model-len 65536 \
-  --max-num-batched-tokens 2048 \
-  --enable-prefix-caching \
-  --block-size 64 \
-  --quantization fp8 \
-  --tensor-parallel-size 2 \
-  --limit-mm-per-prompt '{"image":0,"video":0}' \
-  --enable-auto-tool-choice \
-  --tool-call-parser qwen3_xml \
-  --enable-log-requests \
-  --enable-log-outputs
-```
-```
 export ZE_AFFINITY_MASK=0
 export VLLM_WORKER_MULTIPROC_METHOD=spawn
 
-/opt/venv/bin/vllm serve /llm/models/Qwen-SEA-LION-v4-32B-IT-4BIT \
-  --served-model-name Qwen-SEA-LION-v4-32B-IT-4BIT \
-  --dtype auto \
-  --host 0.0.0.0 \
-  --port 8001 \
-  --trust-remote-code \
-  --disable-sliding-window \
-  --gpu-memory-utilization 0.95 \
+/opt/venv/bin/vllm serve /llm/models/Qwen-SEA-LION-v4.5-27B-IT \
+  --served-model-name sealion-v4.5-27b-int4 \
+  --tensor-parallel-size 1 \
+  --dtype float16 \
+  --quantization sym_int4 \
+  --enforce-eager \
+  --no-enable-prefix-caching \
   --max-model-len 65536 \
   --max-num-seqs 1 \
+  --gpu-memory-utilization 0.95 \
   --kv-cache-dtype fp8_e4m3 \
   --limit-mm-per-prompt '{"image":0,"video":0}' \
   --enable-auto-tool-choice \
-  --tool-call-parser hermes \
+  --tool-call-parser qwen3_xml \
+  --host 0.0.0.0 \
+  --port 8001 \
   --enable-log-requests \
   --enable-log-outputs
 ```
@@ -1374,45 +1363,76 @@ export VLLM_WORKER_MULTIPROC_METHOD=spawn
 Leave the terminal running while vLLM serves requests.
 
 ### Model Family and KVcache Sizing
-Depending on the host server that you will be accessing on the actual day of the event (TP=1 or TP >1) - it will impact the selection of the model that you will be using.
-So pick the right model to download and the right tool call parser on vLLM
+Depending on the host server that you get (TP=1 or TP >1) - it will impact the selection of the model that you will be using (of course).
+So pick the right model that can fit within the kvcache budget available to you and its corresponding tool call parser
 
 | Model | TP | Actual tool syntax | vLLM parser |
 |---|---|---|---|
 | Qwen3.8-27B | TP > 1 | Qwen3 function/parameter XML | `qwen3_xml` |
+| Qwen-SEA-LION-v4.5-27B-IT (4BIT) | TP = 1 | Qwen3 function/parameter XML | `qwen3_xml` |
 | Qwen-SEA-LION-v4-32B-IT-4BIT | TP = 1 | `<tool_call>` + JSON | `hermes` |
 
-### Verify the Model Endpoint
 
-Run on another Ubuntu terminal:
+### Smoke Test on Model's Tool Calling
 
-```bash
-curl -sS http://127.0.0.1:8001/v1/models
+Pass this on the GPU server to test the api endpoint as well as its' tool calling:
+
+```
+curl -s http://localhost:8001/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "sealion-v4.5-27b-int4",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Use the terminal tool to run pwd. Do not answer without using the tool."
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "terminal",
+          "description": "Run a shell command",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              }
+            },
+            "required": ["command"]
+          }
+        }
+      }
+    ],
+    "tool_choice": "auto",
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    },
+    "temperature": 0,
+    "max_tokens": 128,
+    "stream": false
+  }' | jq '.choices[0].message'
 ```
 
-The response should identify the served model as:
+If it passes, it automatically validates the api connectivity as well as the tool calling (moves from content into tool_calls[])
 
-```text
-Qwen3.8-27B
 ```
-
-We now have an OpenAI-compatible model service running on vLLM.
-
-The validated configuration uses:
-
-| Parameter | Value |
-|---|---|
-| Provider | Custom OpenAI-compatible |
-| API Mode | Chat Completions |
-| Base URL | http://GPU_SERVER_IP:8001/v1 |
-| Model | Qwen3.8-27B |
-| Tensor Parallelism | 2 |
-
-If Hermes runs directly on the GPU server, use:
-
-    http://localhost:8001/v1
-
-If Hermes runs on another machine, replace `localhost` with the reachable IP address of the vLLM server.
+{
+  "role": "assistant",
+  "content": null,
+  "tool_calls": [
+    {
+      "type": "function",
+      "function": {
+        "name": "terminal",
+        "arguments": "{\"command\":\"pwd\"}"
+      }
+    }
+  ]
+}
+```
 
 ## 21.1 Verify API Connectivity
 
