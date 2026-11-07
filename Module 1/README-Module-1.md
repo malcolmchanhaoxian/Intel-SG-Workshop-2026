@@ -691,23 +691,10 @@ Open another SSH terminal to the host.
 Query the model endpoint:
 
 ```bash
-curl -s http://localhost:8001/v1/models \
-  | python3 -m json.tool
+curl -s http://localhost:8001/v1/models
 ```
 
 You should see:
-
-```text
-Qwen3.8-27B
-```
-
-The API base URL is:
-
-```text
-http://localhost:8001/v1
-```
-
-The served model name is:
 
 ```text
 Qwen3.8-27B
@@ -722,21 +709,23 @@ Applications use the served model name rather than the model's internal filesyst
 Send a request to the OpenAI-compatible Chat Completions API:
 
 ```bash
-curl -s http://localhost:8001/v1/chat/completions \
+curl -s http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "Qwen3.8-27B",
+    "model": "sealion-v4.5-27b",
     "messages": [
       {
         "role": "user",
-        "content": "Explain tensor parallel inference in five concise bullet points."
+        "content": "Reply with exactly: SEA-LION smoke test passed"
       }
     ],
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    },
     "temperature": 0,
-    "max_tokens": 512,
+    "max_tokens": 64,
     "stream": false
-  }' \
-  | python3 -m json.tool
+  }' | jq -r '.choices[0].message.content'
 ```
 
 If a generated assistant response is returned, the serving path is working:
