@@ -430,16 +430,13 @@ Create the model directory:
 mkdir -p ~/LLM
 ```
 
-For this module, we use:
-
-```text
-Qwen/Qwen3.8-27B-FP8
-```
+For this module - we will be using the SeaLion v4.5 model family, specifically the [Qwen-SEA-LION-v4.5-27B-IT](https://huggingface.co/aisingapore/Qwen-SEA-LION-v4.5-27B-IT). 
+SEA-LION is a family of efficient, open-source, multilingual, multimodal language models designed to understand Southeast Asia’s diverse languages, cultures, and contexts. To learn more about the initiative, visit the website [HERE](https://sea-lion.ai/):
 
 The downloaded model occupies approximately:
 
 ```text
-29 GB
+~54 GB to 56 GB
 ```
 
 Before downloading, check the available storage:
@@ -497,14 +494,14 @@ hf --version
 Download the model directly into the workshop model directory:
 
 ```bash
-hf download Qwen/Qwen3.8-27B-FP8 \
-  --local-dir ~/LLM/Qwen3.8-27B-FP8
+hf download aisingapore/Qwen-SEA-LION-v4.5-27B-IT \
+  --local-dir ~/LLM/Qwen-SEA-LION-v4.5-27B-IT
 ```
 
 Check the resulting model size:
 
 ```bash
-du -sh ~/LLM/Qwen3.8-27B-FP8
+du -sh ~/LLM/Qwen-SEA-LION-v4.5-27B-IT
 ```
 
 Check the remaining storage:
@@ -518,6 +515,13 @@ Deactivate the virtual environment when finished:
 ```bash
 deactivate
 ```
+
+
+### Dynamic Online Quantization
+In this exercise, we will only be downloading the native SEA-LION checkpoint. You will be reusing the same model files while leveraging llm-scalers' vLLM quantization flags and resize the model precision for each subsequent stage of this module. This lets you explore different deployment configurations without downloading and storing a separate copy of the model for each precision.
+
+1. Benchmarking: vLLM with online FP8 quantization. (TP = 1 vs TP > 1)
+2. Hermes: restart vLLM using online INT4, TP=1, and max-num-seqs=1, then enable the required tool-calling options.
 
 ---
 
@@ -662,9 +666,10 @@ export VLLM_WORKER_MULTIPROC_METHOD=spawn
 Start vLLM:
 
 ```bash
-vllm serve /llm/models/Qwen3.8-27B-FP8 \
-  --served-model-name Qwen3.8-27B \
-  --dtype auto \
+vllm serve /llm/models/Qwen-SEA-LION-v4.5-27B-IT \
+  --served-model-name Qwen-SEA-LION-v4.5-27B-IT-fp8 \
+  --dtype float16 \
+  --quantization fp8 \
   --enforce-eager \
   --host 0.0.0.0 \
   --port 8001 \
@@ -672,10 +677,7 @@ vllm serve /llm/models/Qwen3.8-27B-FP8 \
   --disable-sliding-window \
   --gpu-memory-utilization 0.95 \
   --max-model-len 4096 \
-  --max-num-batched-tokens 2048 \
   --enable-prefix-caching \
-  --block-size 64 \
-  --quantization fp8 \
   --tensor-parallel-size 1 \
   --limit-mm-per-prompt '{"image":0,"video":0}'
 ```
@@ -697,7 +699,7 @@ curl -s http://localhost:8001/v1/models
 You should see:
 
 ```text
-Qwen3.8-27B
+Qwen-SEA-LION-v4.5-27B-IT-fp8
 ```
 
 Applications use the served model name rather than the model's internal filesystem path.
@@ -709,10 +711,10 @@ Applications use the served model name rather than the model's internal filesyst
 Send a request to the OpenAI-compatible Chat Completions API:
 
 ```bash
-curl -s http://localhost:8000/v1/chat/completions \
+curl -s http://localhost:8001/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "sealion-v4.5-27b",
+    "model": "Qwen-SEA-LION-v4.5-27B-IT-fp8",
     "messages": [
       {
         "role": "user",
