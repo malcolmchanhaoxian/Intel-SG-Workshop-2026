@@ -250,7 +250,7 @@ curl.exe -sS http://GPU_SERVER_IP:8001/v1/models
 ```
 The response should contain the served model name:
 ```
-Qwen3.8-27B
+sealion-v4.5-27b-int4
 ```
 
 Configure `coder-llm` as follows:
@@ -259,7 +259,7 @@ Configure `coder-llm` as follows:
   # COMPLEX / coding
   - model_name: coder-llm
     litellm_params:
-      model: Qwen3.8-27B
+      model: openai/sealion-v4.5-27b-int4
       api_base: http://GPU_SERVER_IP:8001/v1
       api_key: none
 ```
@@ -287,7 +287,7 @@ model_list:
   # COMPLEX / coding
   - model_name: coder-llm
     litellm_params:
-      model: Qwen3.8-27B
+      model: openai/sealion-v4.5-27b-int4
       api_base: http://GPU_SERVER_IP:8001/v1
       api_key: none
 
