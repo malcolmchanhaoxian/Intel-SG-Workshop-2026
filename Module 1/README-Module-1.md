@@ -1160,73 +1160,8 @@ Stop both XPU-SMI captures when the benchmark completes.
 
 ---
 
-# Part 18: Understand the Metrics
 
-## 18.1 Prompt Processing
-
-```text
-PP tok/s
-```
-
-Prompt-processing throughput measures how quickly the server processes input tokens.
-
-This phase is commonly called:
-
-```text
-prefill
-```
-
-Higher prompt-processing throughput is particularly useful for requests containing:
-
-- long user prompts
-- large system prompts
-- retrieved documents
-- long conversation history
-- agent context
-
----
-
-## 18.2 Token Generation
-
-```text
-TG tok/s
-```
-
-Token-generation throughput measures how quickly the server generates output tokens.
-
-At concurrency greater than 1, distinguish between:
-
-```text
-Total TG tok/s
-```
-
-and:
-
-```text
-TG tok/s per request
-```
-
-Total throughput represents the overall capacity of the serving system.
-
-Per-request throughput represents the generation performance experienced by an individual request.
-
----
-
-## 18.3 Time to First Token
-
-```text
-TTFT
-```
-
-TTFT is important for interactive applications because it measures how long the user waits before usable generated output begins.
-
-Higher concurrency may increase total throughput while also increasing TTFT.
-
-A configuration that delivers the highest total throughput may not provide the best interactive user experience.
-
----
-
-# Part 19: Generate the Comparison Report
+# Part 18: Generate the Comparison Report
 
 The workshop includes:
 
@@ -1309,7 +1244,7 @@ They are never interpreted as zero.
 
 ---
 
-# Part 20: Interpret Scaling
+# Part 19: Interpret Scaling
 
 <img width="1087" height="601" alt="image" src="https://github.com/user-attachments/assets/c66c5277-ebb2-4ee0-95e5-e95628f955ae" />The objective is not to prove:
 
