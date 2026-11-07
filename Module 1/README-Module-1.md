@@ -1442,7 +1442,7 @@ From the machine running Hermes, run:
 
 The response should contain the served model name:
 
-    Qwen3.8-27B
+    sealion-v4.5-27b-int4
 
 ## 21.2 Configure Hermes
 
@@ -1452,20 +1452,13 @@ Start the Hermes CLI:
 
 Configure a custom OpenAI-compatible provider using:
 
-    Provider:
-    Custom
-
-    API Mode:
-    Chat Completions
-
-    Base URL:
-    http://GPU_SERVER_IP:8001/v1
-
-    Model:
-    Qwen3.8-27B
-
-The model name must match the `--served-model-name`
-specified when starting vLLM.
+    Provider: Custom
+    Base URL: http://GPU_SERVER_IP:8001/v1
+    API Mode: Chat Completions
+    Model: sealion-v4.5-27b-int4
+    Context length auto-detect
+    
+The model name must match the `--served-model-name` specified when starting vLLM.
 
 ## 21.3 Disable Streaming for Reliable Tool Calling
 
@@ -1495,18 +1488,8 @@ Non-streaming requests provide reliable structured tool-call handling with the s
 
 This setting applies to Hermes request handling only; it does not disable streaming at the vLLM server level.
 
-## 21.4 Configure vLLM for Tool Calling
 
-The vLLM server must enable automatic tool choice and use a parser compatible with the Qwen XML tool-call format.
-
-Include:
-
-    --enable-auto-tool-choice
-    --tool-call-parser qwen3_xml
-
-⚠️ The `qwen3_xml` parser is important. Using `qwen3_xml` allowed vLLM to return structured OpenAI-compatible `tool_calls`.
-
-## 21.5 Validate Hermes Tool Execution
+## 21.4 Validate Hermes Tool Execution
 
 After changing the Hermes streaming configuration, exit and restart the Hermes CLI.
 
@@ -1536,7 +1519,7 @@ A final test is to ask Hermes to inspect a directory without modifying any files
 
 This tests multi-step tool execution, directory inspection, file-size analysis and structured reporting.
 
-## 21.6 Known-Good Configuration
+## 21.5 Known-Good Configuration
 
 The validated Hermes configuration is:
 
@@ -1555,7 +1538,7 @@ The validated Hermes configuration is:
     Streaming:
     false
 
-## 21.7 Troubleshooting
+## 21.6 Troubleshooting
 
 | Symptom | Action |
 |---|---|
