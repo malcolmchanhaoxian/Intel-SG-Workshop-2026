@@ -867,53 +867,15 @@ This gives a more meaningful representation of user-perceived responsiveness whe
 
 ## 12.4 What We Will Measure
 
-The benchmark focuses on four areas:
+The benchmark focuses on four areas. These application-level measurements are combined with XPU-SMI telemetry:
 
-```text
-Prompt Processing Throughput
-        |
-        +--> How quickly can the server process input?
-
-Token Generation Throughput
-        |
-        +--> How quickly can the server generate output?
-
-Time to First Token
-        |
-        +--> How quickly does generated output begin?
-
-Concurrency
-        |
-        +--> How does serving behavior change as load increases?
 ```
-
-These application-level measurements are combined with XPU-SMI telemetry:
-
-```text
-llama-benchy
-     |
-     +-- PP tok/s
-     +-- TG tok/s
-     +-- TG tok/s per request
-     +-- TTFT
-     |
-     +-------------------+
-                         |
-                         v
-                  Comparison Report
-                         ^
-                         |
-     +-------------------+
-     |
-XPU-SMI
-     |
-     +-- GPU power
-     +-- GPU memory
-     +-- GPU frequency
-```
+llama-benchy ──► PP tok/s · TG tok/s · TG tok/s/request · TTFT ───┐
+                                                                  ├──► Comparison Report
+XPU-SMI ──────► GPU power · GPU memory · GPU frequency ───────────┘
 
 This allows us to evaluate not only whether TP=2 is faster, but also where additional GPUs improve serving capacity and where the system begins to saturate.
-
+```
 ---
 
 # Part 13: Install llama-benchy
@@ -999,9 +961,9 @@ Run:
 ```bash
 llama-benchy \
   --base-url http://localhost:8001/v1 \
-  --model /home/intel/LLM/Qwen3.8-27B-FP8 \
-  --served-model-name Qwen3.8-27B \
-  --tokenizer /home/intel/LLM/Qwen3.8-27B-FP8 \
+  --model /home/intel/LLM/Qwen-SEA-LION-v4.5-27B-IT \
+  --served-model-name Qwen-SEA-LION-v4.5-27B-IT-fp8 \
+  --tokenizer /home/intel/LLM/Qwen-SEA-LION-v4.5-27B-IT \
   --pp 512 \
   --tg 128 \
   --exact-tg \
@@ -1107,9 +1069,10 @@ Visible XPUs: 2
 Start vLLM with Tensor Parallelism set to 2:
 
 ```bash
-vllm serve /llm/models/Qwen3.8-27B-FP8 \
-  --served-model-name Qwen3.8-27B \
-  --dtype auto \
+vllm serve /llm/models/Qwen-SEA-LION-v4.5-27B-IT \
+  --served-model-name Qwen-SEA-LION-v4.5-27B-IT-fp8 \
+  --dtype float16 \
+  --quantization fp8 \
   --enforce-eager \
   --host 0.0.0.0 \
   --port 8001 \
@@ -1117,10 +1080,7 @@ vllm serve /llm/models/Qwen3.8-27B-FP8 \
   --disable-sliding-window \
   --gpu-memory-utilization 0.95 \
   --max-model-len 4096 \
-  --max-num-batched-tokens 2048 \
   --enable-prefix-caching \
-  --block-size 64 \
-  --quantization fp8 \
   --tensor-parallel-size 2 \
   --limit-mm-per-prompt '{"image":0,"video":0}'
 ```
@@ -1181,9 +1141,9 @@ Run:
 ```bash
 llama-benchy \
   --base-url http://localhost:8001/v1 \
-  --model /home/intel/LLM/Qwen3.8-27B-FP8 \
-  --served-model-name Qwen3.8-27B \
-  --tokenizer /home/intel/LLM/Qwen3.8-27B-FP8 \
+  --model /home/intel/LLM/SEA-LION-v4.5-27B-IT \
+  --served-model-name SEA-LION-v4.5-27B-IT-fp8 \
+  --tokenizer /home/intel/LLM/SEA-LION-v4.5-27B-IT \
   --pp 512 \
   --tg 128 \
   --exact-tg \
