@@ -92,8 +92,7 @@ docker run --rm hello-world
 Clone the repo
 ```
 cd ~
-git clone --depth 1 --filter=blob:none --sparse \
-  https://github.com/malcolmchanhaoxian/Intel-SG-Workshop-2026.git
+git clone https://github.com/malcolmchanhaoxian/Intel-SG-Workshop-2026.git
 ```
 
 ## 1. Configure secrets
