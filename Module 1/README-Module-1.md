@@ -528,7 +528,7 @@ Expose both Intel GPUs to the same container for the TP=1 and TP=2 experiments.
 Run:
 
 ```bash
-docker run --rm -it \
+docker run -it \
   --device=/dev/dri \
   -v /dev/dri/by-path:/dev/dri/by-path \
   --ipc=host \
