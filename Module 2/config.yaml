@@ -34,7 +34,7 @@ model_list:
         
         tiers:
           SIMPLE: default-llm
-          MEDIUM: default-llm
+          MEDIUM: coder-llm
           COMPLEX: coder-llm
           REASONING: reasoning-llm
 
