@@ -464,7 +464,30 @@ In the LiteLLM dashboard, inspect the request logs and confirm that the actual b
 
 ### 8.2 Test COMPLEX
 
-Send a coding-oriented prompt and inspect the corresponding LiteLLM request log.
+Send a coding-oriented prompt with a vulnarable code that does double withdrawal:
+
+```
+Analyze this Python withdrawal implementation for correctness under concurrent requests.
+Identify the race condition, explain the time-of-check/time-of-use problem, and provide a thread-safe implementation.
+Then explain why an in-process lock is insufficient when multiple application instances share the same PostgreSQL account database,
+and provide a transaction-safe database approach.
+
+import time
+
+def withdraw_money(account, amount):
+    # 1. TIME OF CHECK
+    if account['balance'] >= amount:
+        print("Funds approved!")
+        
+        # Simulating a tiny network delay or system lag
+        time.sleep(0.1) 
+        
+        # 2. TIME OF USE
+        account['balance'] -= amount
+        print(axis = f"Withdrew ${amount}. New balance: ${account['balance']}")
+    else:
+        print("Declined: Insufficient funds.")
+```
 
 The expected backend is:
 
