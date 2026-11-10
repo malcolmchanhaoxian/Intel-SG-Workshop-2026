@@ -76,18 +76,20 @@ The Module 2 lab contains:
 
 ## 0. Prerequisites (Ubuntu 24.04)
 
-By this stage, you should have the prerequisites all cleared in previous Module. Skip to Part 1.
-For the uninitiated, please ensure Docker is installed.
+By this stage, your assigned student VM has already been provisioned with
+Ubuntu 24.04, Docker Engine, Docker Compose, and one Intel Arc Pro B70.
 
-Install Docker Engine / Compose using Docker's official Ubuntu repository. Also install `jq`, `curl`, and `openssl`.
-
-After Docker is installed, add your user to the `docker` group and reconnect the SSH session (or use `newgrp docker`). Verify:
-
+Verify:
 ```bash
+hostname
 docker --version
 docker compose version
-docker run --rm hello-world
 ```
+
+For the uninitiated, please ensure Docker is installed. Install Docker Engine / Compose using
+Docker's official Ubuntu repository. Also install `jq`, `curl`, and `openssl`. After Docker is
+installed, add your user to the `docker` group and reconnect the SSH session (or use `newgrp docker`). 
+
 
 Clone the repo
 ```
@@ -280,8 +282,8 @@ docker compose logs -f litellm
 Press Ctrl+C after LiteLLM is listening. This stops only the log view.
 
 Services:
-- TEI: host port 8080
-- LiteLLM: host port 4000
+- TEI: student VM port 8080
+- LiteLLM: student VM port 4000
 - PostgreSQL: internal Docker network only
 
 TEI is pinned to Xeon cores `0-7` in `docker-compose.yml`. Adjust `cpuset` to match the intended CPU allocation.
@@ -306,9 +308,9 @@ LiteLLM can log the same routing decision twice; duplicates do not represent ext
 
 ## 4. OpenAI-compatible application endpoint
 
-Applications use:
+Within the student VM, Applications use:
 
-- Base URL: `http://<gateway-host>:4000/v1`
+- Base URL: `http://127.0.0.1:4000/v1`
 - Chat endpoint: `/chat/completions`
 - Model: `smart_router`
 
@@ -317,7 +319,7 @@ Example from the gateway host:
 ```bash
 export KEY=$(grep '^LITELLM_MASTER_KEY=' .env | cut -d= -f2-)
 
-curl -s localhost:4000/v1/chat/completions \
+curl -s http://127.0.0.1:4000/v1/chat/completions \
   -H "Authorization: Bearer $KEY" \
   -H 'Content-Type: application/json' \
   -d '{"model":"smart_router","max_tokens":1000,"messages":[{"role":"user","content":"Write a Python function to reverse a string. Include the complete function and one example."}]}' \
@@ -327,10 +329,39 @@ curl -s localhost:4000/v1/chat/completions \
 
 Reasoning-capable backends can consume much of the completion budget in reasoning tokens. A 100-token test produced `finish_reason=length` before returning answer content during validation, while a 1000-token request returned the answer. For learning tests use `max_tokens: 1000` or inspect the model's reasoning/token behavior explicitly.
 
+### 4.1 Connect Your Windows Laptop to LiteLLM / vLLM
+
+Still remember the ssh tunnel we created to get the vLLM api to our laptop?
+Now we expand the port forwarding to include LiteLLM as well.
+Cancel ```(ctrl+c)``` the previous tunneling and re-enter this in PS:
+
+```
+ssh -N -T `
+  -J intel@<TRAINING_HOST_IP> `
+  -o ExitOnForwardFailure=yes `
+  -L 4000:127.0.0.1:4000 `
+  -L 8001:127.0.0.1:8001 `
+  intel@student01
+```
+
+Keep this PowerShell window open.
+Verify LiteLLM from a new Powershell window:
+
+```
+curl.exe http://127.0.0.1:4000/health/readiness
+```
+
+Expected:
+```
+{"status":"healthy","db":"connected"}
+```
+
 ## 5. LiteLLM UI
 
 Access LiteLLM UI Dashboard
-```http://<gateway-host>:4000/ui```
+```text
+http://127.0.0.1:4000/ui/
+```
 
 <img width="2556" height="1262" alt="image" src="https://github.com/user-attachments/assets/243cfa96-b71a-4a35-888b-b810f716b04a" />
 
@@ -371,19 +402,23 @@ Make changes to existing model routing decisions
 vim config.yaml
 ```
 
-## 9. Server-side model and log checks
+## 9. Model and log checks
 
 Models:
 
 ```bash
 export KEY=$(grep '^LITELLM_MASTER_KEY=' .env | cut -d= -f2-)
-curl -s localhost:4000/v1/models -H "Authorization: Bearer $KEY" | jq -r '.data[].id'
+
+curl -s http://127.0.0.1:4000/v1/models \
+  -H "Authorization: Bearer $KEY" \
+  | jq -r '.data[].id'
 ```
 
 Recent spend/request records (newest first):
 
 ```bash
-curl -s localhost:4000/spend/logs -H "Authorization: Bearer $KEY" \
+curl -s http://127.0.0.1:4000/spend/logs \
+  -H "Authorization: Bearer $KEY" \
   | jq -r '.[:5][] | "\(.startTime)  \(.model_group // .model)  \(.model)"'
 ```
 
