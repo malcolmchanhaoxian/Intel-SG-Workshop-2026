@@ -25,7 +25,7 @@ OpenAI-Compatible API
  Intel Arc Pro GPUs
         |
         v
-Qwen3.8-27B-FP8
+Qwen-SEA-LION-v4.5-27B-IT
 ```
 
 We will use Intel's `llm-scaler-vllm` container and Intel Arc Pro GPUs.
@@ -77,24 +77,19 @@ By the end of this module, you will be able to:
 The validated environment used during development of this module was:
 
 ```text
-Operating System:
-Ubuntu 24.04 LTS
+The student VM is already provisioned with:
 
-Kernel:
-6.17.0-1009-intel
+- Ubuntu 24.04 LTS
+- Intel kernel `6.17.0-1009-intel`
+- Intel `xe` GPU driver
+- one passed-through Intel Arc Pro B70
+- Docker Engine and Docker Compose
+- access to the shared workshop model repository at `/llm/models`
 
-GPU:
-2 x Intel Arc Pro B70
-
-GPU Driver:
-xe
-
-Container:
-intel/llm-scaler-vllm:1.5
-(vLLM 0.26.1.dev0+g568afb3a1.d20260907)
-
-Model:
-Qwen/Qwen3.8-27B-FP8
+Model: aisingapore/Qwen-SEA-LION-v4.5-27B-IT
+Model Path: /llm/models/Qwen-SEA-LION-v4.5-27B-IT
+The model weights are stored once on the physical host and shared with the student VMs using virtiofs.
+Students do **not** download another copy of the model into their VM.
 
 Serving Engine:
 vLLM
@@ -103,15 +98,37 @@ Benchmark:
 llama-benchy
 ```
 
-Your exact GPU count, PCI addresses, storage layout, or available GPU memory may differ.
+---
+
+# Part 1: Login into VM
+
+# Part 1: Connect to Your Student VM
+
+You will be assigned a VM:
+
+```text
+VM Name: studentNN (e.g. student01, student02 ...)
+Username: intel
+Password: studentNN (e.g. student01, student02 ...)
+
+For example:
+
+VM:       student01
+Username: intel
+Password: student01
+```
+
+Login from the Linux training host
+
+```bash
+ssh intel@student01
+```
 
 ---
 
-# Part 1: Validate the Intel GPUs
+## 1.1 Check PCIe Devices and Validate the Intel GPUs
 
 Before starting Docker or vLLM, validate the hardware from the Linux host.
-
-## 1.1 Check PCIe Devices
 
 Run:
 
@@ -308,54 +325,34 @@ The dashboard displays information such as:
 
 ---
 
-## 3.1 Fix Non-Root GPU Access
+## 3.1 Validate Non-Root GPU Access
 
-If this works:
+Run this:
 
 ```bash
-sudo xpu-smi discovery
+id
 ```
 
-but this fails:
+Expected groups
+```bash
+video
+render
+docker
+```
+
+And you should be able to run:
 
 ```bash
 xpu-smi discovery
 ```
 
-check the current user's groups:
-
-```bash
-groups
-```
-
-The user should have access to:
-
-```text
-video
-render
-```
-
-Add the current user to both groups if required:
+If doesn't work without sudo - Add the current user to both groups:
 
 ```bash
 sudo usermod -aG render,video $USER
 ```
 
 Log out and reconnect through SSH.
-
-Verify:
-
-```bash
-groups
-```
-
-Then repeat:
-
-```bash
-xpu-smi discovery
-```
-
-The command should now work without `sudo`.
 
 ---
 
@@ -424,97 +421,76 @@ The image includes the Intel XPU software environment required to run vLLM on th
 
 # Part 6: Prepare the Model
 
-Create the model directory:
-
-```bash
-mkdir -p ~/LLM
-```
-
 For this module - we will be using the SeaLion v4.5 model family, specifically the [Qwen-SEA-LION-v4.5-27B-IT](https://huggingface.co/aisingapore/Qwen-SEA-LION-v4.5-27B-IT). 
 SEA-LION is a family of efficient, open-source, multilingual, multimodal language models designed to understand Southeast Asia’s diverse languages, cultures, and contexts. To learn more about the initiative, visit the website [HERE](https://sea-lion.ai/):
 
-The downloaded model occupies approximately:
+The SEA-LION model is already stored on the physical training host and shared with each student VM.
+Students do **not** download another copy.
 
-```text
-~54 GB to 56 GB
-```
-
-Before downloading, check the available storage:
+Check the model mount:
 
 ```bash
-df -h ~/LLM
+findmnt /llm/models
 ```
 
-Ensure that the model can be downloaded without filling the host filesystem.
+Expected:
+
+```text
+TARGET      SOURCE          FSTYPE   OPTIONS
+/llm/models workshop_models virtiofs ro,...
+```
+
+The `ro` option indicates that the shared model repository is read-only from the student VM.
+
+Check the model:
+
+```bash
+du -sh /llm/models/Qwen-SEA-LION-v4.5-27B-IT
+```
+
+The validated checkpoint is approximately:
+
+```text
+52G
+```
+
+Check the configuration:
+
+```bash
+ls -lh \
+  /llm/models/Qwen-SEA-LION-v4.5-27B-IT/config.json
+```
+
+Check the model shards:
+
+```bash
+find /llm/models/Qwen-SEA-LION-v4.5-27B-IT \
+  -maxdepth 1 \
+  -name '*.safetensors' | wc -l
+```
+
+The validated workshop model contains ```15``` safetensor shards.
+
+The important architecture is:
+
+```text
+Physical Training Host
+        |
+        | one canonical model copy
+        v
+Qwen-SEA-LION-v4.5-27B-IT
+        |
+        | virtiofs
+        +----------------------+
+        |                      |
+        v                      v
+   student01               student02
+ /llm/models             /llm/models
+```
+
+This prevents every VM from consuming another 52 GB for identical model weights.
 
 ---
-
-## 6.1 Install the Hugging Face CLI
-
-Ubuntu 24.04 protects the system Python environment using PEP 668.
-
-Do not bypass this protection using:
-
-```text
---break-system-packages
-```
-
-Instead, create a dedicated virtual environment.
-
-Install the Python virtual-environment package:
-
-```bash
-sudo apt install -y python3-venv
-```
-
-Create the environment:
-
-```bash
-python3 -m venv ~/hf-cli
-```
-
-Activate it:
-
-```bash
-source ~/hf-cli/bin/activate
-```
-
-Install the Hugging Face Hub client:
-
-```bash
-pip install -U huggingface_hub
-```
-
-Verify:
-
-```bash
-hf --version
-```
-
-Download the model directly into the workshop model directory:
-
-```bash
-hf download aisingapore/Qwen-SEA-LION-v4.5-27B-IT \
-  --local-dir ~/LLM/Qwen-SEA-LION-v4.5-27B-IT
-```
-
-Check the resulting model size:
-
-```bash
-du -sh ~/LLM/Qwen-SEA-LION-v4.5-27B-IT
-```
-
-Check the remaining storage:
-
-```bash
-df -h /
-```
-
-Deactivate the virtual environment when finished:
-
-```bash
-deactivate
-```
 
 
 ### Dynamic Online Quantization
@@ -533,11 +509,12 @@ Run:
 
 ```bash
 docker run -it \
+  --name llm-scaler \
   --device=/dev/dri \
   -v /dev/dri/by-path:/dev/dri/by-path \
   --ipc=host \
   --network=host \
-  -v ~/LLM:/llm/models \
+  -v /llm/models:/llm/models \
   --entrypoint /bin/bash \
   intel/llm-scaler-vllm:1.5
 ```
@@ -569,7 +546,7 @@ Allows the serving processes to use the host IPC namespace.
 Exposes the vLLM API directly through the host network.
 
 ```text
--v ~/LLM:/llm/models
+-v /llm/models:/llm/models
 ```
 
 Makes the downloaded model available inside the container.
@@ -688,12 +665,12 @@ Wait until the API server reports that startup has completed.
 
 # Part 10: Discover the OpenAI-Compatible API
 
-Open another SSH terminal to the host.
-
+Open another SSH terminal to the VM.
 Query the model endpoint:
 
 ```bash
-curl -s http://localhost:8001/v1/models
+curl -s http://127.0.0.1:8001/v1/models \
+  | python3 -m json.tool
 ```
 
 You should see:
@@ -711,7 +688,7 @@ Applications use the served model name rather than the model's internal filesyst
 Send a request to the OpenAI-compatible Chat Completions API:
 
 ```bash
-curl -s http://localhost:8001/v1/chat/completions \
+curl -s http://127.0.0.1:8001/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "Qwen-SEA-LION-v4.5-27B-IT-fp8",
@@ -745,7 +722,7 @@ vLLM
 Intel GPU
    |
    v
-Qwen3.8-27B
+Qwen-SEA-LION-v4.5-27B-IT
 ```
 
 A single request proves that the API works.
@@ -960,8 +937,8 @@ Run:
 
 ```bash
 llama-benchy \
-  --base-url http://localhost:8001/v1 \
-  --model /home/intel/LLM/Qwen-SEA-LION-v4.5-27B-IT \
+  --base-url http://127.0.0.1:8001/v1 \
+  --model /llm/models/Qwen-SEA-LION-v4.5-27B-IT \
   --served-model-name Qwen-SEA-LION-v4.5-27B-IT-fp8 \
   --tokenizer /home/intel/LLM/Qwen-SEA-LION-v4.5-27B-IT \
   --pp 512 \
@@ -1140,8 +1117,8 @@ Run:
 
 ```bash
 llama-benchy \
-  --base-url http://localhost:8001/v1 \
-  --model /home/intel/LLM/SEA-LION-v4.5-27B-IT \
+  --base-url http://127.0.0.1:8001/v1 \
+  --model /llm/models/Qwen-SEA-LION-v4.5-27B-IT \
   --served-model-name SEA-LION-v4.5-27B-IT-fp8 \
   --tokenizer /home/intel/LLM/SEA-LION-v4.5-27B-IT \
   --pp 512 \
@@ -1316,7 +1293,7 @@ The purpose of the exercise is to measure this behavior rather than assume the s
 
 The benchmark-serving configuration and agent-serving configuration have different requirements. When switching to the agent-serving configuration, restart the vLLM process with the tool-calling flags shown below.
 
-Return to the container running the TP=1 vLLM server and stop vLLM:
+Return to the container running the vLLM server and stop vLLM:
 
 ```text
 Ctrl+C
@@ -1375,10 +1352,10 @@ So pick the right model that can fit within the kvcache budget available to you 
 
 ### Smoke Test on Model's Tool Calling
 
-Pass this on the GPU server to test the api endpoint as well as its' tool calling:
+Pass this on the VM to test the api endpoint as well as its' tool calling:
 
 ```
-curl -s http://localhost:8001/v1/chat/completions \
+curl -s http://127.0.0.1:8001/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "sealion-v4.5-27b-int4",
@@ -1436,9 +1413,21 @@ If it passes, it automatically validates the api connectivity as well as the too
 
 ## 21.1 Verify API Connectivity
 
-From the machine running Hermes, run:
+Since the training VM is in an isolated network, we need to port forward our local endpoint device through the Host Machine.
+From the machine running Hermes, enter this in PS: 
 
-    curl.exe -sS http://GPU_SERVER_IP:8001/v1/models
+```shell
+ssh -N -T `
+  -J intel@<TRAINING_HOST_IP> `
+  -o ExitOnForwardFailure=yes `
+  -L 8001:127.0.0.1:8001 `
+  intel@student01
+```
+
+Then run:
+```shell
+    curl.exe -sS http://127.0.0.1:8001/v1/models
+```
 
 The response should contain the served model name:
 
@@ -1453,7 +1442,7 @@ Start the Hermes CLI:
 Configure a custom OpenAI-compatible provider using:
 
     Provider: Custom
-    Base URL: http://GPU_SERVER_IP:8001/v1
+    Base URL: http://127.0.0.1:8001/v1
     API Mode: Chat Completions
     Model: sealion-v4.5-27b-int4
     Context length auto-detect
@@ -1527,13 +1516,13 @@ The validated Hermes configuration is:
     custom
 
     Base URL:
-    http://GPU_SERVER_IP:8001/v1
+    http://127.0.0.1:8001/v1
 
     API Mode:
     chat_completions
 
     Model:
-    Qwen3.8-27B
+    Qwen-SEA-LION-v4.5-27B-IT
 
     Streaming:
     false
@@ -1567,7 +1556,7 @@ The architecture is:
     Intel Arc Pro B70 GPUs
          |
          v
-    Qwen3.8-27B-FP8
+    Qwen-SEA-LION-v4.5-27B-IT
 
 ---
 
@@ -1594,7 +1583,7 @@ The architecture is:
 
 ## vLLM
 
-- [ ] Qwen3.8-27B-FP8 loads successfully
+- [ ] Qwen-SEA-LION-v4.5-27B-IT loads successfully
 - [ ] TP=1 serving works
 - [ ] TP=2 serving works
 - [ ] `/v1/models` responds
@@ -1657,7 +1646,7 @@ Hermes -------------> vLLM
                +--------+--------+
                         |
                         v
-                Qwen3.8-27B-FP8
+             Qwen-SEA-LION-v4.5-27B-IT
 ```
 
 We separated:
