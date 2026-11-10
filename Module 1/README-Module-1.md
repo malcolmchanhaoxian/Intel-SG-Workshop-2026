@@ -102,7 +102,7 @@ llama-benchy
 
 # Part 1: Login into VM
 
-# Part 1: Connect to Your Student VM
+# Part 1: Connect to Your Student VM via Jumphost
 
 You will be assigned a VM:
 
@@ -118,10 +118,35 @@ Username: intel
 Password: student01
 ```
 
-Login from the Linux training host
+### SSH via MobaX
 
-```bash
-ssh intel@student01
+Create a new SSH session
+
+In MobaXterm:
+
+Session → SSH
+
+Set: e.g.
+Remote host: student01
+Username: intel
+Port: 22
+
+Then, look under Advanced SSH settings or Network settings for SSH gateway / jump host.
+
+Configure:
+Gateway host: SERVER_IP
+Gateway port: 22
+Gateway user: intel
+
+After login, confirm:
+
+```
+hostname
+```
+
+Expected:
+```
+student01
 ```
 
 ---
