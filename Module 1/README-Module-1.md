@@ -446,6 +446,8 @@ The image includes the Intel XPU software environment required to run vLLM on th
 
 # Part 6: Prepare the Model
 
+<img width="1024" height="290" alt="image" src="https://github.com/user-attachments/assets/52b90b44-bb2e-4c64-ab42-b448f370ce07" />
+
 For this module - we will be using the SeaLion v4.5 model family, specifically the [Qwen-SEA-LION-v4.5-27B-IT](https://huggingface.co/aisingapore/Qwen-SEA-LION-v4.5-27B-IT). 
 SEA-LION is a family of efficient, open-source, multilingual, multimodal language models designed to understand Southeast Asia’s diverse languages, cultures, and contexts. To learn more about the initiative, visit the website [HERE](https://sea-lion.ai/):
 
