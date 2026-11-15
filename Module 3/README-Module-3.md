@@ -1,6 +1,10 @@
 # Configuring LiteLLM Semantic Routing and Connecting to Agent Harness
 
-This README documents how to configure LiteLLM running in Docker (Linux) to route SIMPLE and MEDIUM requests to a local llama.cpp server running on a Windows laptop. The connection uses an SSH reverse tunnel so the llama.cpp server does not need to listen directly on the LAN.
+This README documents how to configure LiteLLM running in Docker inside the assigned student VM to route requests across the learner's Windows laptop, the dedicated Intel Arc Pro B70, and a cloud reasoning model.
+
+SIMPLE requests are routed to the local Hermes model running through llama.cpp on the Windows laptop. MEDIUM and COMPLEX requests are routed to SEA-LION served by vLLM on the student's dedicated B70. REASONING requests are routed to the configured cloud reasoning backend.
+
+An SSH reverse tunnel allows the LiteLLM container inside the student VM to securely reach the llama.cpp server on the learner's Windows laptop without exposing llama.cpp directly on the LAN.
 
 In the previous modules, we already created our own LLM serving endpoints and we will bring those endpoints together.
 - **Module 0 / local inference:** `llama.cpp` server running via `SYCL0`
@@ -9,31 +13,32 @@ In the previous modules, we already created our own LLM serving endpoints and we
 ## 1. Architecture
 
 ```text
-                 Hermes Agent (Windows)
-                           |
-                           | OpenAI-compatible API
-                           v
-                     LiteLLM Proxy
-                           |
-              ┌────────────┼────────────┐
-              |            |            |
-              v            v            v
-      1. Local LLM    2. GPU LLM    3. Cloud LLM
-         Inference       Inference      Inference
-              |            |            |
-              v            v            v
-        llama.cpp       vLLM on       OpenRouter
-        Windows         Intel Arc     Free Models
-    Hermes-3-Llama-     Pro B70
-      3.1-8B-4bit
+                       Hermes Agent
+                     Windows Laptop
+                          |
+                          | SSH -L :4000
+                          v
+                    LiteLLM Proxy
+                  inside studentNN
+                          |
+            +-------------+-------------+
+            |             |             |
+            v             v             v
+         SIMPLE      MEDIUM/COMPLEX   REASONING
+            |             |             |
+            v             v             v
+         Hermes        SEA-LION      OpenRouter
+       llama.cpp         vLLM          Cloud
+       Windows            |
+       :8080              v
+          ^          Intel Arc Pro B70
 
 ```
 
 ### 1.1 Configuration Reference
 
-Depending on how user is accessing the LiteLLM proxy, local llama.cpp server (via SYCL0) and B70 GPU vLLM endpoint, network configuration will differ. Some of the steps below are relevant to the moderator's configuration of a reverse tunnel (since llama.cpp server and hermes agent OS is residing in local PC and LiteLLM router and B70 endpoint is residing in remote server) 
+LiteLLM, TEI, PostgreSQL, and the B70 vLLM endpoint run inside the assigned studentNN VM. Hermes and llama.cpp run on the Windows laptop. The training host is used as the SSH jump host between the learner laptop and the assigned student VM.
 
-Step 3 - 5 is not relevant to the fundamental concept of semantic LLM routing for agentic harness. You may skip it if you are only listening to the moderator's demonstration. 
 
 ## 2. Start llama.cpp on Windows Powershell
 You should have your existing llama.cpp server open based on [Module 0](https://github.com/malcolmchanhaoxian/Intel-SG-Workshop-2026/tree/main/Module%200)
@@ -56,96 +61,37 @@ Hermes-3-Llama-3.1-8B-4bit
 
 If this request fails, resolve the llama.cpp startup issue before proceeding.
 
-## 3. Verify the Docker Gateway on your LiteLLM/B70 server
+## 3. Verify the Docker Gateway on your Student VM (LiteLLM/B70)
 
 The LiteLLM container must connect to the Docker bridge gateway, not to its own loopback address.
 
-Run this command on server terminal. ```module2-litellm-1``` is the name of the docker we started in [Module 2](https://github.com/malcolmchanhaoxian/Intel-SG-Workshop-2026/tree/main/Module%202):
+Your existing docker in [Module 2](https://github.com/malcolmchanhaoxian/Intel-SG-Workshop-2026/tree/main/Module%202) ```inspect module2-litellm-1``` command works, but we now know exactly what information we need:
 
 ```bash
-docker inspect module2-litellm-1 \
-  --format '{{range $name, $net := .NetworkSettings.Networks}}network={{$name}} container_ip={{$net.IPAddress}} gateway={{$net.Gateway}}{{println}}{{end}}'
+GATEWAY=$(docker network inspect module2_default \
+  --format '{{(index .IPAM.Config 0).Gateway}}')
+
+echo "$GATEWAY"
 ```
 
 Example output:
 
 ```text
-network=module2_default container_ip=<IPADDRESS> gateway=<IPADDRESS>
+172.18.0.1
 ```
-
-Record the gateway address. This example uses `172.18.0.1`.
 
 ## 4. Configure SSH Reverse Tunnelling
 
-We will initiate a SSH reverse tunnel from our Local Windows PC to the LiteLLM/B70 Server so our LiteLLM router can access the local iGPU model serving.
-
-### 4.1 Back Up the SSH Configuration
-
-On the server side, create a backup:
-
-```bash
-sudo cp -a /etc/ssh/sshd_config \
-  /etc/ssh/sshd_config.backup-before-gatewayports
-```
-
-### 4.2 Configure GatewayPorts on Server
-
-Edit the SSH daemon configuration:
-
-```bash
-sudo nano /etc/ssh/sshd_config
-```
-
-Set the following directive:
-
-```text
-GatewayPorts clientspecified
-```
-
-Check for conflicting active `GatewayPorts` directives, including directives later in the file or in included configuration files.
-
-The intended setting is `clientspecified`.
-
-**Do not use `GatewayPorts yes` for this configuration.** It will cause the reverse tunnel to listen on wildcard addresses, including `0.0.0.0:18080` and `[::]:18080`, exposing the listener on all host interfaces.
-
-With `GatewayPorts clientspecified`, the SSH client can request the specific bind address `172.18.0.1`.
-
-### 4.3 Validate and Reload SSH
-
-Validate the SSH configuration:
-
-```bash
-sudo sshd -t
-```
-
-No output indicates that the syntax check passed.
-
-Reload the SSH service:
-
-```bash
-sudo systemctl reload ssh
-```
-
-Verify the effective setting:
-
-```bash
-sudo sshd -T | grep '^gatewayports '
-```
-
-Expected output:
-
-```text
-gatewayports clientspecified
-```
-
-Do not proceed if the effective setting is different.
-
-### 4.4 Start the Reverse Tunnel from Windows to the B70/LiteLLM server
+We will create an SSH reverse tunnel from the Windows laptop to the assigned student VM. This makes the laptop-hosted Hermes/llama.cpp endpoint reachable from the LiteLLM container inside the student VM.
 
 In PowerShell on Windows, run:
 
 ```powershell
-ssh -N -T -o ExitOnForwardFailure=yes -R 172.18.0.1:18080:127.0.0.1:8080 username@<SERVERIPADDRESS>
+ssh -N -T `
+  -J intel@<TRAINING_HOST_IP> `
+  -o ExitOnForwardFailure=yes `
+  -R 172.18.0.1:18080:127.0.0.1:8080 `
+  intel@student01
 ```
 
 Replace the gateway address, SSH username, or Server IP address if your environment differs.
