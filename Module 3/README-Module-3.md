@@ -452,45 +452,24 @@ hermes model
 Configure:
 
 ```text
-Custom / OpenAI-compatible endpoint
+Provider:
+Custom / OpenAI-compatible
+
+API Mode:
+Chat Completions
+
+Base URL:
+http://127.0.0.1:4000/v1
+
+Model:
+smart_router
+
+API Key:
+<LiteLLM Virtual Key>
+
+Context Length:
+64000
 ```
-
-### Base URL
-
-```text
-http://<LITELLM SERVER IP>:4000/v1
-```
-
-For API authentication - remember your [virtual key](https://github.com/malcolmchanhaoxian/Intel-SG-Workshop-2026/blob/main/Module%202/README-Module-2.md#6-create-application-keys)? 
-Enter it here when prompted.
-
-### Select (2) Chat Completions as compatibility mode
-
-```text
-Select API compatibility mode:
-  1. Auto-detect [current]
-     Use Hermes URL heuristics; best for standard OpenAI-compatible endpoints.
-  2. Chat Completions
-     Use /chat/completions for standard OpenAI-compatible servers.
-  3. Responses / Codex
-     Use /responses for Codex-compatible tool-calling backends.
-  4. Anthropic Messages
-     Use /v1/messages for Anthropic-compatible endpoints.
-```
-
-### Model
-
-```text
-  Detected model: smart_router
-  Use this model? [Y/n]:
-```
-
-This matches the model that we served, so enter 'Y'
-
-### Context length
-
-When prompted for the context length, use: ```64000```.
-Hermes has a minimum floor of 64000 tokens for context window.
 
 ### Model Endpoint Name
 
@@ -503,18 +482,8 @@ Display name [Local (127.0.0.1:8080)]: LiteLLM Smart Router
 For the local LLM on laptop, let's skip reasoning:
 
 ```
- Select reasoning effort:
-  Select by number, Enter to confirm.
+ Select reasoning effort:  (○)  8. Disable reasoning
 
-  (○)  1. minimal
-  (○)  2. low
-  (●)  3. medium  ← currently in use
-  (○)  4. high
-  (○)  5. xhigh
-  (○)  6. max
-  (○)  7. ultra
-  (○)  8. Disable reasoning
-  (○)  9. Skip (keep current)
 ```
 
 ### Validate the configuration:
@@ -541,7 +510,7 @@ Start the interactive Hermes CLI:
 hermes
 ```
 
-### 8.1 Test SIMPLE or MEDIUM
+### 8.1 Test SIMPLE
 
 From Hermes on Windows, send a simple prompt, such as:
 
@@ -595,6 +564,10 @@ This maps to the configured OpenRouter model.
 ### 8.3 Test REASONING
 
 Send a reasoning-intensive prompt and inspect the request log.
+
+```
+Compare active-active and active-passive designs for a multi-region payment platform. Analyze the trade-offs and recommend one architecture.
+```
 
 The expected backend is:
 
