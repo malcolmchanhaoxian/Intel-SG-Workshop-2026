@@ -434,11 +434,22 @@ bge-embed
 
 ## 8. Connect to Hermes
 
+Keep the existing LiteLLM/vLLM powershell tunnel to your Student VM active 
+
+```
+ssh -N -T `
+  -J intel@<TRAINING_HOST_IP> `
+  -o ExitOnForwardFailure=yes `
+  -L 4000:127.0.0.1:4000 `
+  -L 8001:127.0.0.1:8001 `
+  intel@student01
+```
+
 ```powershell
 hermes model
 ```
 
-Choose the option for:
+Configure:
 
 ```text
 Custom / OpenAI-compatible endpoint
