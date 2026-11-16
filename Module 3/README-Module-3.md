@@ -82,7 +82,7 @@ Example output:
 
 ## 4. Configure SSH Reverse Tunnelling
 
-We will create an SSH reverse tunnel from the Windows laptop to the assigned student VM. This makes the laptop-hosted Hermes/llama.cpp endpoint reachable from the LiteLLM container inside the student VM.
+We will create an SSH reverse tunnel from the Windows laptop to the assigned student VM. This makes the laptop-hosted Hermes/llama.cpp endpoint reachable from the LiteLLM container inside the student VM. Port 18080 is the workshop's chosen reverse-tunnel port on the student VM. It forwards to the llama.cpp server running on Windows at 127.0.0.1:8080.
 
 In PowerShell on Windows, run:
 
@@ -94,24 +94,26 @@ ssh -N -T `
   intel@student01
 ```
 
-Replace the gateway address, SSH username, or Server IP address if your environment differs.
+Replace:
+- 172.18.0.1 with the Docker gateway discovered on your student VM in Part 3.
+- <TRAINING_HOST_IP> with the training host IP provided by the instructor.
+- student01 with your assigned student VM name.
 
 A successful tunnel normally remains running without returning to the PowerShell prompt. This is expected.
-
 Keep this window open while using LiteLLM.
 
-### 4.5 Verify the Tunnel Listener
+### Verify the Tunnel Listener
 
-On server, run:
+On the VM, run:
 
 ```bash
-ss -ltnp | grep ':18080'
+sudo ss -lntp | grep ':18080'
 ```
 
 The intended listener address is:
 
 ```text
-172.18.0.1:18080
+LISTEN 0 128 172.18.0.1:18080 0.0.0.0:* users:(("sshd",...))
 ```
 
 **Security check:** Do not consider the tunnel restricted if the output shows wildcard listeners such as:
@@ -122,17 +124,21 @@ The intended listener address is:
 ```
 
 If it still shows wildcard listeners, stop and correct the effective SSH configuration before continuing.
-
 The tunnel should listen on the Docker gateway address, not on every host interface.
 
-## 5. Test Connectivity Through the Tunnel
+## 5. A Series of Smoke Tests... 
 
-### 5.1 Test from the LiteLLM Container
+### 5.1 Test Tunnel Connectivity from Windows to Student VM 
 
-With llama.cpp and the SSH tunnel running, execute this command on server:
+With llama.cpp and the SSH tunnel running, open a new terminal for your student VM and execute:
 
 ```bash
-docker exec module2-litellm-1 python3 -c "import urllib.request; print(urllib.request.urlopen('http://172.18.0.1:18080/v1/models', timeout=5).read().decode())"
+GATEWAY=$(docker network inspect module2_default \
+  --format '{{(index .IPAM.Config 0).Gateway}}')
+
+echo "$GATEWAY"
+
+curl -s "http://${GATEWAY}:18080/v1/models" | jq
 ```
 
 The response should contain the local model alias:
@@ -156,28 +162,104 @@ Check the following:
 
 Repeat the container connectivity test after correcting the issue.
 
+### 5.3 Test the tunnel from the inside the LiteLLM Container
+
+```
+docker exec module2-litellm-1 \
+  python -c "
+import urllib.request
+print(
+    urllib.request.urlopen(
+        'http://${GATEWAY}:18080/v1/models',
+        timeout=5
+    ).read().decode()
+)
+"
+```
+
+The response should again contain the local model alias:
+
+```text
+Hermes-3-Llama-3.1-8B-4bit
+```
+
+### 5.4 Test Actual Hermes Inference
+
+Don't stop at /v1/models. Verify actual generation:
+
+```
+curl -s "http://${GATEWAY}:18080/v1/chat/completions" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "Hermes-3-Llama-3.1-8B-4bit",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Reply exactly: reverse tunnel passed"
+      }
+    ],
+    "temperature": 0,
+    "max_tokens": 32
+  }' | jq -r '.choices[0].message.content'
+```
+
+Expected:
+```
+reverse tunnel passed
+```
+
+### What We Have Proven 
+
+At this point:
+
+```
+Windows llama.cpp
+127.0.0.1:8080
+        ^
+        |
+     SSH -R
+        |
+Student VM
+<DockerGateway>:18080
+        ^
+        |
+        |
+LiteLLM container
+```
 
 ## 6. Configure LiteLLM `config.yaml`
 
-Edit the host-side LiteLLM configuration file:
+Edit the host-side LiteLLM configuration file using your preferred STFP editor:
 
-```bash
-vim ~/Intel-SG-Workshop-2026/Module\ 2/config.yaml
+```/home/intel/Intel-SG-Workshop-2026/Module 2/config.yaml```
+
+Before editing, make a backup:
+
+```shell
+cd ~/Intel-SG-Workshop-2026/"Module 2"
+cp config.yaml config.yaml.before-module3
 ```
+
+The Docker gateway discovered in Part 5 is still available in this terminal as:
+
+```echo "$GATEWAY"```
+
+Example:
+```172.18.0.1```
 
 The current config routes prompts of different nature to different LLM. We have split the prompt type to the below format as explained previously:
 ```
-# SIMPLE / MEDIUM (model_name: default-llm)
-# COMPLEX / coding (model_name: coder-llm)
+# SIMPLE (model_name: default-llm)
+# MEDIUM / COMPLEX (model_name: coder-llm)
 # REASONING (model_name: reasoning-llm)
 ```
 
-### 6.1.1 SIMPLE/MEDIUM - Local llama.cpp Backend
+### 6.1.1 SIMPLE - Local llama.cpp Backend
 
 Configure `default-llm` as follows:
 
 ```yaml
-# SIMPLE / MEDIUM: local llama.cpp on Windows via SSH reverse tunnel
+# SIMPLE: local Hermes on Windows via SSH reverse tunnel
 - model_name: default-llm
   litellm_params:
     model: openai/Hermes-3-Llama-3.1-8B-4bit
@@ -186,29 +268,41 @@ Configure `default-llm` as follows:
 ```
 
 The `api_base` must match the Docker gateway and reverse-tunnel port.
+**Important**: replace 172.18.0.1 with the Docker gateway discovered on the student's VM if it is different.
 
-### 6.1.2 COMPLEX - vLLM on B70 Edge Server
+### 6.1.2 MEDIUM / COMPLEX - vLLM on B70 Edge Server
 
-You can also quickly extract the model structure of the vLLM endpoint on the GPU server.
+LiteLLM router will need to reach the vLLM endpoint from within the container gateway. So let's test this:
 
 ```
-curl.exe -sS http://GPU_SERVER_IP:8001/v1/models
+docker exec module2-litellm-1 \
+  python -c "
+import urllib.request
+print(
+    urllib.request.urlopen(
+        'http://${GATEWAY}:8001/v1/models',
+        timeout=5
+    ).read().decode()
+)
+"
 ```
 The response should contain the served model name:
 ```
-sealion-v4.5-27b-int4
+Qwen-SEA-LION-v4.5-27B-IT-fp8
 ```
 
 Configure `coder-llm` as follows:
 
 ```yaml
-  # COMPLEX / coding
-  - model_name: coder-llm
-    litellm_params:
-      model: openai/sealion-v4.5-27b-int4
-      api_base: http://GPU_SERVER_IP:8001/v1
-      api_key: none
+# MEDIUM / COMPLEX: SEA-LION on the student's dedicated B70
+- model_name: coder-llm
+  litellm_params:
+    model: openai/Qwen-SEA-LION-v4.5-27B-IT-fp8
+    api_base: http://172.18.0.1:8001/v1
+    api_key: none
 ```
+
+You can keep or change the OpenRouter reasoning backend per your own liking.
 
 ## 6.2 Final Model List
 
@@ -216,34 +310,35 @@ At this point, your `model_list` should conceptually contain:
 
 ```yaml
 model_list:
-  # BGE embedding model served locally by TEI on Xeon.
+
+  # Embeddings: local TEI service
   - model_name: bge-embed
     litellm_params:
       model: openai/BAAI/bge-base-en-v1.5
       api_base: http://tei:80/v1
       api_key: none
 
-  # SIMPLE / MEDIUM
+  # SIMPLE: Windows Hermes through SSH reverse tunnel
   - model_name: default-llm
     litellm_params:
       model: openai/Hermes-3-Llama-3.1-8B-4bit
       api_base: http://172.18.0.1:18080/v1
       api_key: none
 
-  # COMPLEX / coding
+  # MEDIUM / COMPLEX: SEA-LION on student B70
   - model_name: coder-llm
     litellm_params:
-      model: openai/sealion-v4.5-27b-int4
-      api_base: http://GPU_SERVER_IP:8001/v1
+      model: openai/Qwen-SEA-LION-v4.5-27B-IT-fp8
+      api_base: http://172.18.0.1:8001/v1
       api_key: none
 
-  # REASONING
+  # REASONING: cloud
   - model_name: reasoning-llm
     litellm_params:
       model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
-      api_key: os.environ/OPENROUTER_API_KEY
-```
+      api_key: os.environ/OPENROUTER_API_KEY```
 
+**Important**: The example uses 172.18.0.1. Replace both occurrences with the Docker gateway discovered on your assigned student VM.
 
 ### 6.3 Preserve the Smart Router Configuration
 
@@ -259,7 +354,7 @@ Keep the existing `smart_router` model and complexity-routing rules. The intende
 
       tiers:
         SIMPLE: default-llm
-        MEDIUM: default-llm
+        MEDIUM: coder-llm
         COMPLEX: coder-llm
         REASONING: reasoning-llm
       semantic_keyword_matching: true
@@ -276,7 +371,9 @@ This is an excerpt for the relevant model entry. Preserve the actual `keyword_ti
 After saving the updated configuration, restart only the LiteLLM container:
 
 ```bash
-docker restart module2-litellm-1
+cd ~/Intel-SG-Workshop-2026/"Module 2"
+
+docker compose restart litellmdocker restart module2-litellm-1
 ```
 
 Check the startup logs:
@@ -292,7 +389,48 @@ Application startup complete.
 Uvicorn running on http://0.0.0.0:4000
 ```
 
-If the application fails to start, inspect the logs before making additional configuration changes.
+### Verify LiteLLM health:
+
+```
+curl -s http://127.0.0.1:4000/health/readiness | jq
+```
+
+Expected:
+
+```json
+{
+"status": "healthy",
+"db": "connected"
+}
+```
+
+If LiteLLM has only just restarted, it may need a few seconds before the readiness endpoint responds.
+
+### Verify LiteLLM Model Registration
+This can be done on the LiteLLM UI as well.
+
+Load the LiteLLM master key:
+
+```
+export KEY=$(grep '^LITELLM_MASTER_KEY=' .env | cut -d= -f2-)
+```
+
+Then:
+
+```
+curl -s http://127.0.0.1:4000/v1/models \
+-H "Authorization: Bearer $KEY" \
+| jq -r '.data[].id'
+```
+
+Verify the important aliases are present:
+```
+smart_router
+default-llm
+coder-llm
+reasoning-llm
+bge-embed
+```
 
 ## 8. Connect to Hermes
 
