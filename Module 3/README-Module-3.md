@@ -16,7 +16,7 @@ In the previous modules, we already created our own LLM serving endpoints and we
                        Hermes Agent
                      Windows Laptop
                           |
-                          | SSH -L :4000
+                          | 
                           v
                     LiteLLM Proxy
                   inside studentNN
@@ -30,8 +30,8 @@ In the previous modules, we already created our own LLM serving endpoints and we
          Hermes        SEA-LION      OpenRouter
        llama.cpp         vLLM          Cloud
        Windows            |
-       :8080              v
-          ^          Intel Arc Pro B70
+                          v
+                   Intel Arc Pro B70
 
 ```
 
