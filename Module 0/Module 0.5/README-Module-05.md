@@ -182,6 +182,20 @@ If everything has been configured successfully, the config check should return t
 
 ```
 
+### 3.1 Configure Model Thru' Hermes Desktop
+
+Go to Settings > Providers > API Keys > Local / custom endpoint.
+Insert the OpenAI-compatible endpoint
+
+```http://127.0.0.1:8080/v1```
+
+Then go to Settings > Providers > Custom Endpoints.
+Edit the rest of the endpoint details:
+
+- Endpoint name
+- API Mode (Chat Completions)
+- Check Default Model is reflected correctly
+
 ## 4. Start and Test the Hermes agent
 
 Start the interactive Hermes CLI:
