@@ -288,7 +288,7 @@ print(
 ```
 The response should contain the served model name:
 ```
-Qwen-SEA-LION-v4.5-27B-IT-fp8
+Qwen-SEA-LION-v4.5-27B-IT-4bit
 ```
 
 Configure `coder-llm` as follows:
@@ -297,7 +297,7 @@ Configure `coder-llm` as follows:
 # MEDIUM / COMPLEX: SEA-LION on the student's dedicated B70
 - model_name: coder-llm
   litellm_params:
-    model: openai/Qwen-SEA-LION-v4.5-27B-IT-fp8
+    model: openai/Qwen-SEA-LION-v4.5-27B-IT-4bit
     api_base: http://172.18.0.1:8001/v1
     api_key: none
 ```
