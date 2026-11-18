@@ -88,7 +88,7 @@ In PowerShell on Windows, run:
 
 ```powershell
 ssh -N -T `
-  -J intel@<TRAINING_HOST_IP> `
+  -J sparkle@<TRAINING_HOST_IP> `
   -o ExitOnForwardFailure=yes `
   -R 172.18.0.1:18080:127.0.0.1:8080 `
   intel@student01
