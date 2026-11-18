@@ -1445,7 +1445,7 @@ From the machine running Hermes, enter this in PS:
 
 ```shell
 ssh -N -T `
-  -J intel@<TRAINING_HOST_IP> `
+  -J sparkle@<TRAINING_HOST_IP> `
   -o ExitOnForwardFailure=yes `
   -L 8001:127.0.0.1:8001 `
   intel@student01
@@ -1476,6 +1476,19 @@ Configure a custom OpenAI-compatible provider using:
     
 The model name must match the `--served-model-name` specified when starting vLLM.
 
+Again - if you are using Hermes Desktop.
+Go to Settings > Providers > API Keys > Local / custom endpoint.
+Insert the OpenAI-compatible endpoint
+
+```http://127.0.0.1:8001/v1```
+
+Then go to Settings > Providers > Custom Endpoints.
+Edit the rest of the endpoint details:
+
+- Endpoint name
+- API Mode (Chat Completions)
+- Check Default Model is reflected correctly
+- 
 ## 21.3 Disable Streaming for Reliable Tool Calling
 
 For this validated self-hosted vLLM configuration,
