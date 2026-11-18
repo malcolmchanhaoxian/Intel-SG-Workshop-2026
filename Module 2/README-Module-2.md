@@ -337,7 +337,7 @@ Cancel ```(ctrl+c)``` the previous tunneling and re-enter this in PS:
 
 ```
 ssh -N -T `
-  -J intel@<TRAINING_HOST_IP> `
+  -J sparkle@<TRAINING_HOST_IP> `
   -o ExitOnForwardFailure=yes `
   -L 4000:127.0.0.1:4000 `
   -L 8001:127.0.0.1:8001 `
