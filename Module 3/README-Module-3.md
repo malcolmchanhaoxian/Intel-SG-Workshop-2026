@@ -373,7 +373,8 @@ After saving the updated configuration, restart only the LiteLLM container:
 ```bash
 cd ~/Intel-SG-Workshop-2026/"Module 2"
 
-docker compose restart litellmdocker restart module2-litellm-1
+docker compose restart litellm
+docker restart module2-litellm-1
 ```
 
 Check the startup logs:
