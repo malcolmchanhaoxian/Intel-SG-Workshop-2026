@@ -1040,7 +1040,7 @@ The purpose of the concurrency sweep is to observe this behavior rather than ass
 
 ---
 
-# Part 16: Switch to TP=2
+# Part 16: Switch to TP=2 or (TP = N)
 
 Return to the container running the TP=1 vLLM server.
 
