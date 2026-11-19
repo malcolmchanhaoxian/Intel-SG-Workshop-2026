@@ -1070,7 +1070,7 @@ Expected:
 Visible XPUs: 2
 ```
 
-Start vLLM with Tensor Parallelism set to 2:
+Start vLLM with Tensor Parallelism set to 2 **or what ever the maximum GPU count is (tensor-parallel-size n)**:
 
 ```bash
 vllm serve /llm/models/Qwen-SEA-LION-v4.5-27B-IT \
