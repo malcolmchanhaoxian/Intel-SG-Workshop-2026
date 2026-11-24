@@ -862,8 +862,8 @@ for concurrency in concurrencies:
     row(
         [
             "",
-            f"TG/req {fmt(base.get('tg_request'))} tok/s",
-            f"TG/req {fmt(target.get('tg_request'))} tok/s",
+            f"TG/req {fmt(base.get('tg') / concurrency if base.get('tg') is not None and concurrency else None)} tok/s",
+            f"TG/req {fmt(target.get('tg') / concurrency if target.get('tg') is not None and concurrency else None)} tok/s",
             "",
         ],
         performance_widths,
