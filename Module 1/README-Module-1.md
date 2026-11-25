@@ -967,7 +967,7 @@ llama-benchy \
   --base-url http://127.0.0.1:8001/v1 \
   --model /llm/models/Qwen-SEA-LION-v4.5-27B-IT \
   --served-model-name Qwen-SEA-LION-v4.5-27B-IT-fp8 \
-  --tokenizer /home/intel/LLM/Qwen-SEA-LION-v4.5-27B-IT \
+  --tokenizer /llm/models/Qwen-SEA-LION-v4.5-27B-IT \
   --pp 512 \
   --tg 128 \
   --exact-tg \
@@ -1147,7 +1147,7 @@ llama-benchy \
   --base-url http://127.0.0.1:8001/v1 \
   --model /llm/models/Qwen-SEA-LION-v4.5-27B-IT \
   --served-model-name Qwen-SEA-LION-v4.5-27B-IT-fp8 \
-  --tokenizer /home/intel/LLM/SEA-LION-v4.5-27B-IT \
+  --tokenizer /llm/models/Qwen-SEA-LION-v4.5-27B-IT \
   --pp 512 \
   --tg 128 \
   --exact-tg \
